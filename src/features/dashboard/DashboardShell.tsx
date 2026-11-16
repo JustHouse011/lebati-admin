@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { APP_NAME } from '../../appName'
 import BrandLogo from '../../components/BrandLogo'
 import WorkspaceOverview from './WorkspaceOverview'
 import WorkspaceModule, { type RecordChange } from './WorkspaceModule'
@@ -223,7 +224,7 @@ function DashboardSidebar({ user, theme, workspace }: { user: DemoUser; theme: '
     <aside className={`sticky top-0 flex h-dvh shrink-0 flex-col border-r ${isDark ? 'border-slate-700 bg-[#0f172a]' : 'border-slate-200 bg-white'} w-16 md:w-20 lg:w-[260px]`}>
       <div className={`flex min-h-20 flex-col justify-center gap-2 border-b px-2 py-4 md:px-3 lg:px-5 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
         <BrandLogo className="w-full lg:w-44" />
-        <div className={`hidden text-[9px] uppercase tracking-[0.28em] lg:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Operator portal</div>
+        <div className={`hidden text-xs lg:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{APP_NAME}</div>
       </div>
       <nav aria-label="Workspace navigation" className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {items.map(({ label, path, icon: Icon }) => {

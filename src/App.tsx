@@ -26,6 +26,7 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { z } from 'zod'
+import { APP_NAME } from './appName'
 import BrandLogo from './components/BrandLogo'
 import DashboardShell from './features/dashboard/DashboardShell'
 import OnboardingFlow from './features/onboarding/OnboardingFlow'
@@ -175,8 +176,8 @@ function LoginPage() {
               <BrandLogo className="mb-6 w-44 lg:hidden" />
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-light uppercase tracking-[0.3em] text-[#087E87]">
-                    Global access
+                  <p className="text-xs font-light text-[#087E87]">
+                    {APP_NAME}
                   </p>
                   <h2 className="mt-2 text-3xl font-light text-[#102235]">Welcome back</h2>
                 </div>
@@ -532,7 +533,7 @@ function AccessGrantedPage() {
         <p className="mt-6 text-xs uppercase tracking-[0.3em] text-[#16836B]">Access granted</p>
         <h1 className="mt-3 text-4xl font-light text-[#102235]">Access confirmed</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Continue to the Lebathi workspace{email ? <> as <span className="font-light text-[#102235]">{email}</span></> : null}.
+          Continue to {APP_NAME}{email ? <> as <span className="font-light text-[#102235]">{email}</span></> : null}.
         </p>
 
         <div className="mt-8 grid gap-3 rounded-2xl border border-[#BFE6D8] bg-white p-4 text-left text-sm text-slate-700">

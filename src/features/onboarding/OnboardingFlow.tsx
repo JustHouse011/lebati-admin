@@ -1,5 +1,6 @@
 import { formatPreferredDate } from '../../services/mockProfile'
 import BrandLogo from '../../components/BrandLogo'
+import { APP_NAME } from '../../appName'
 import { readApprovals, submitApproval, type QueueRecord } from '../../services/approvalQueue'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
@@ -1150,7 +1151,7 @@ function ReviewPage() {
             </label>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-[#F8FAFB] p-3">
               <input type="checkbox" checked={acknowledgements.terms} onChange={() => setAcknowledgements((current) => ({ ...current, terms: !current.terms }))} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#087E87]" />
-              <span>I accept the Lebathi platform terms applicable to this onboarding journey.</span>
+              <span>I accept the {APP_NAME} terms for onboarding.</span>
             </label>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-[#F8FAFB] p-3">
               <input type="checkbox" checked={acknowledgements.privacy} onChange={() => setAcknowledgements((current) => ({ ...current, privacy: !current.privacy }))} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#087E87]" />

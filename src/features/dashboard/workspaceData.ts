@@ -1,5 +1,5 @@
 export const workspaces = {
-  global: 'Global Lebathi',
+  global: 'Global workspace',
   sassa: 'SASSA',
   nsfas: 'NSFAS',
 } as const
