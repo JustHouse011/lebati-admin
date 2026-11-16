@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { LebatiApp } from './App'
+import { getStoredSessionUser } from './services/mockAuth'
 
 describe('Lebati Stage A flows', () => {
   it('shows validation errors for invalid login input', async () => {
@@ -23,7 +24,7 @@ describe('Lebati Stage A flows', () => {
     })
   })
 
-  it('accepts the authorised admin credentials and routes to the dashboard', async () => {
+  it('requires the OTP after validating credentials before opening the dashboard', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <LebatiApp />
@@ -37,6 +38,20 @@ describe('Lebati Stage A flows', () => {
       target: { value: '12345678' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await screen.findByRole('heading', { name: 'Verify your sign-in' }, { timeout: 3000 })
+    expect(getStoredSessionUser()).toBeNull()
+
+    const input = screen.getByLabelText('Verification code', { exact: true })
+    const verify = screen.getByRole('button', { name: 'Verify and sign in' })
+    const code = screen.getByText(/verification code for this browser/i).querySelector('strong')!.textContent!
+    fireEvent.change(input, { target: { value: code === '000000' ? '000001' : '000000' } })
+    fireEvent.click(verify)
+    expect(screen.getByRole('alert')).toHaveTextContent(/code doesn’t match/i)
+    expect(getStoredSessionUser()).toBeNull()
+
+    fireEvent.change(input, { target: { value: code } })
+    fireEvent.click(verify)
 
     await waitFor(
       () => {

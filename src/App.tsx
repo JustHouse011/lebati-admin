@@ -28,10 +28,11 @@ import {
 import { z } from 'zod'
 import { APP_NAME } from './appName'
 import BrandLogo from './components/BrandLogo'
+import LoginOtp from './components/LoginOtp'
 import DashboardShell from './features/dashboard/DashboardShell'
 import OnboardingFlow from './features/onboarding/OnboardingFlow'
 import { getPreferences } from './services/mockProfile'
-import { logout, mockAdminUser, persistAuthenticatedUser, resetWorkspacePassword, validateMockCredentials } from './services/mockAuth'
+import { logout, mockAdminUser, persistAuthenticatedUser, resetWorkspacePassword, validateMockCredentials, type MockUser } from './services/mockAuth'
 
 const loginSchema = z.object({
   email: z.string().trim().email('Enter a valid business email address.'),
@@ -97,6 +98,7 @@ function LoginPage() {
     handleSubmit,
     setError,
     clearErrors,
+    resetField,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -106,6 +108,7 @@ function LoginPage() {
     },
   })
   const [showPassword, setShowPassword] = useState(false)
+  const [pendingUser, setPendingUser] = useState<MockUser | null>(null)
 
   const onSubmit = async (values: LoginFormValues) => {
     clearErrors('root')
@@ -120,8 +123,10 @@ function LoginPage() {
       return
     }
 
-    persistAuthenticatedUser(account)
-    navigate(getPreferences().landingPage, { replace: true })
+    logout()
+    resetField('password')
+    setShowPassword(false)
+    setPendingUser(account)
   }
 
   return (
@@ -179,7 +184,7 @@ function LoginPage() {
                   <p className="text-xs font-light text-[#087E87]">
                     {APP_NAME}
                   </p>
-                  <h2 className="mt-2 text-3xl font-light text-[#102235]">Welcome back</h2>
+                  <h2 className="mt-2 text-3xl font-light text-[#102235]">{pendingUser ? 'Verify your sign-in' : 'Welcome back'}</h2>
                 </div>
                 <span className="rounded-full border border-[#C6A66B] bg-[#FFF7EC] px-2.5 py-1 text-[10px] font-light uppercase tracking-[0.2em] text-[#102235]">
                   Administrator
@@ -196,7 +201,12 @@ function LoginPage() {
                 </div>
               </div>
 
-              <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+              {pendingUser ? (
+                <LoginOtp onBack={() => setPendingUser(null)} onVerify={() => {
+                  persistAuthenticatedUser(pendingUser)
+                  navigate(getPreferences().landingPage, { replace: true })
+                }} />
+              ) : <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div>
                   <label htmlFor="email" className="mb-2 block text-sm font-light text-[#102235]">
                     Email address
@@ -264,7 +274,7 @@ function LoginPage() {
                   {isSubmitting ? 'Signing in...' : 'Sign in'}
                   <ArrowLeft className="h-4 w-4 rotate-180" />
                 </button>
-              </form>
+              </form>}
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
                 <div className="mb-2 flex items-center gap-2 font-light text-[#102235]">
