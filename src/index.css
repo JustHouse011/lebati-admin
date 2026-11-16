@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300; font-display: swap; src: url('/fonts/Inter-Light.ttf') format('truetype'); }
+
+@theme {
+  --color-navy: #102235;
+  --color-teal: #087E87;
+  --color-gold: #C6A66B;
+  --color-canvas: #F6F8FA;
+  --color-success: #16836B;
+  --color-error: #C34C4C;
+  --color-surface: #FFFFFF;
+  --font-sans: 'Inter', 'Segoe UI', sans-serif;
+  --font-display: 'Inter', 'Segoe UI', sans-serif;
+}
+
+:root {
+  color: #102235;
+  background: #F6F8FA;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  background: #F6F8FA;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #F6F8FA;
+  color: #102235;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.font-display {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* Use the actual Light face in controls and SVG charts as well as body text. */
+*, *::before, *::after { font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 300; font-style: normal; font-synthesis: none; }
+.settings-card { padding: 1.5rem; border: 1px solid #e2e8f0; border-radius: 24px; background: white; }
+.settings-input { border: 1px solid #cbd5e1; background: #f8fafb; border-radius: 12px; padding: .75rem; color: #102235; min-width: 0; }
+.settings-input:focus { outline: 2px solid #087e87; outline-offset: 2px; }
+.settings-input[readonly] { opacity: .75; }
+.settings-button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border: 1px solid #087e87; border-radius: 12px; padding: .7rem 1rem; background: #087e87; color: white; font-size: .875rem; cursor: pointer; }
+.settings-button.secondary { background: transparent; color: inherit; border-color: #94a3b8; }
+.settings-button:focus-visible { outline: 2px solid #087e87; outline-offset: 3px; }
+.settings-button:disabled { opacity: .45; cursor: not-allowed; }
+.settings-overlay { position: fixed; inset: 0; z-index: 100; background: #10223588; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+[data-theme='dark'] .settings-card { background: #111827; border-color: #334155; color: #e2e8f0; }
+[data-theme='dark'] .settings-input { background: #0f172a; border-color: #475569; color: #e2e8f0; }
+@media (max-width: 639px) { .settings-card { padding: 1rem; } }
+
+/* Existing dashboard cards follow the shell theme without changing their layout. */
+[data-theme='dark'] :is(.bg-white, .bg-\[\#F8FAFB\], .bg-\[\#F6F8FA\]) { background-color: #111827; }
+[data-theme='dark'] :is(.text-\[\#102235\], .text-slate-700, .text-slate-600) { color: #e2e8f0; }
+[data-theme='dark'] :is(.text-slate-500, .text-slate-400) { color: #94a3b8; }
+[data-theme='dark'] .border-slate-200 { border-color: #334155; }
+[data-theme='dark'] .recharts-cartesian-axis-tick-value { fill: #cbd5e1; }

@@ -1,0 +1,123 @@
+import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { LebatiApp } from '../../App'
+import { mockAdminUser, persistAuthenticatedUser, validateMockCredentials, changeMockPassword } from '../../services/mockAuth'
+import { getInitials, getProfile, getPreferences, getNotificationPreferences } from '../../services/mockProfile'
+
+function open(path: string, authenticated = true) {
+  if (authenticated) persistAuthenticatedUser(mockAdminUser)
+  const router = createMemoryRouter([{ path: '*', element: <LebatiApp /> }], { initialEntries: [path] })
+  render(<RouterProvider router={router} />)
+  return router
+}
+beforeEach(() => { localStorage.clear(); sessionStorage.clear() })
+afterEach(cleanup)
+
+it.each(['profile', 'account', 'security', 'notifications'])('protects %s settings without a session', async (page) => {
+  const router = open(`/settings/${page}`, false)
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+})
+it('removes the sidebar session panel and shows derived initials', () => {
+  open('/settings/profile')
+  expect(screen.queryByText('Signed in')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open profile menu' })).toHaveTextContent('BN')
+  expect(getInitials({ firstName: 'Lerato', lastName: 'Mokoena', displayName: '' })).toBe('LM')
+})
+it('supports keyboard menu navigation, Escape and outside dismissal', () => {
+  open('/settings/profile')
+  const trigger = screen.getByRole('button', { name: 'Open profile menu' })
+  fireEvent.click(trigger)
+  expect(screen.getByRole('menuitem', { name: 'My Profile' })).toHaveFocus()
+  fireEvent.keyDown(screen.getByRole('menu'), { key: 'End' })
+  expect(screen.getByRole('menuitem', { name: 'Log Out' })).toHaveFocus()
+  fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+  expect(trigger).toHaveFocus()
+  fireEvent.click(trigger)
+  fireEvent.pointerDown(document.body)
+  expect(trigger).toHaveAttribute('aria-expanded', 'false')
+})
+it('saves profile edits, updates initials and can cancel further edits', () => {
+  open('/settings/profile')
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Lerato' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  expect(getProfile().firstName).toBe('Lerato')
+  expect(screen.getByRole('button', { name: 'Open profile menu' })).toHaveTextContent('LN')
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Other' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel editing' }))
+  expect(screen.getByLabelText('First Name')).toHaveValue('Lerato')
+  expect(screen.getByLabelText('Role')).toHaveAttribute('readonly')
+})
+it('warns before leaving unsaved edits and retains them when cancelled', () => {
+  const router = open('/settings/profile')
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Changed' } })
+  fireEvent.click(screen.getByRole('link', { name: /^Account$/ }))
+  expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+  expect(router.state.location.pathname).toBe('/settings/profile')
+  expect(screen.getByLabelText('First Name')).toHaveValue('Changed')
+})
+it('persists account theme and landing page', () => {
+  open('/settings/account')
+  expect(screen.getByLabelText('Time zone')).toHaveValue('Africa/Johannesburg')
+  fireEvent.change(screen.getByLabelText('Theme preference'), { target: { value: 'dark' } })
+  fireEvent.change(screen.getByLabelText('Default dashboard landing page'), { target: { value: '/dashboard/approvals' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }))
+  expect(getPreferences()).toMatchObject({ theme: 'dark', landingPage: '/dashboard/approvals' })
+  expect(document.querySelector('[data-theme]')).toHaveAttribute('data-theme', 'dark')
+})
+it('rejects blank profile names and invalid phone numbers', () => {
+  open('/settings/profile')
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: '   ' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('required')
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Bongani' } })
+  fireEvent.change(screen.getByLabelText('Mobile Number'), { target: { value: 'not-a-phone' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('mobile')
+  expect(getProfile().mobile).toBe('')
+})
+it('keeps the session when logout is cancelled for unsaved changes', () => {
+  open('/settings/profile')
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+  fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Changed' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Open profile menu' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Log Out' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+  expect(sessionStorage.getItem('lebati-demo-session')).not.toBeNull()
+})
+it('validates password confirmation and leaves 2FA disabled during preview', () => {
+  open('/settings/security')
+  fireEvent.change(screen.getByLabelText('Current Password'), { target: { value: '12345678' } })
+  fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'NewPassword123!' } })
+  fireEvent.change(screen.getByLabelText('Confirm New Password'), { target: { value: 'Different123!' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save password' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('do not match')
+  fireEvent.click(screen.getByRole('button', { name: 'Enable configuration preview' }))
+  expect(screen.getByText('Status: Disabled')).toBeInTheDocument()
+  expect(localStorage.getItem('password')).toBeNull()
+})
+it('validates the current password and changes credentials only in memory', () => {
+  expect(() => changeMockPassword('wrong', 'NewPassword123!')).toThrow('incorrect')
+  changeMockPassword('12345678', 'NewPassword123!')
+  expect(validateMockCredentials(mockAdminUser.email, 'NewPassword123!')).not.toBeNull()
+  expect(JSON.stringify(localStorage)).not.toContain('NewPassword123!')
+  changeMockPassword('NewPassword123!', 'DemoPassword123!')
+})
+it('persists notification choices', () => {
+  open('/settings/notifications')
+  fireEvent.click(screen.getByLabelText('Email notifications'))
+  fireEvent.click(screen.getByRole('button', { name: 'Save notifications' }))
+  expect(getNotificationPreferences().email).toBe(false)
+})
+it('logs out and clears the existing session', async () => {
+  const router = open('/settings/profile')
+  fireEvent.click(screen.getByRole('button', { name: 'Open profile menu' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Log Out' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  expect(sessionStorage.getItem('lebati-demo-session')).toBeNull()
+})
+
