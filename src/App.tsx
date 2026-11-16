@@ -2,7 +2,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft,
-  BadgeCheck,
   Building2,
   CheckCircle2,
   CircleDashed,
@@ -31,7 +30,7 @@ import BrandLogo from './components/BrandLogo'
 import DashboardShell from './features/dashboard/DashboardShell'
 import OnboardingFlow from './features/onboarding/OnboardingFlow'
 import { getPreferences } from './services/mockProfile'
-import { logout, persistAuthenticatedUser, validateMockCredentials } from './services/mockAuth'
+import { logout, mockAdminUser, persistAuthenticatedUser, resetWorkspacePassword, validateMockCredentials } from './services/mockAuth'
 
 const loginSchema = z.object({
   email: z.string().trim().email('Enter a valid business email address.'),
@@ -101,8 +100,8 @@ function LoginPage() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'bnombamba@icloud.com',
-      password: '12345678',
+      email: '',
+      password: '',
     },
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -156,7 +155,7 @@ function LoginPage() {
                   </span>
                 </div>
                 <p className="text-sm leading-6 text-slate-200">
-                  Institutional controls, legal review checkpoints, and regulated access decisions are signalled in this fictional operator workspace.
+                  Review verification records, compliance cases, and access decisions in one workspace.
                 </p>
               </div>
             </div>
@@ -191,10 +190,7 @@ function LoginPage() {
                   Account
                 </p>
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
-                  <div>
-                    <div className="font-light text-[#102235]">Global Administrator</div>
-                    <div className="text-xs text-slate-500">bnombamba@icloud.com</div>
-                  </div>
+                  <div className="font-light text-[#102235]">Global Administrator</div>
                   <ShieldCheck className="h-5 w-5 text-[#087E87]" />
                 </div>
               </div>
@@ -253,13 +249,6 @@ function LoginPage() {
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[#102235]">
-                    <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#087E87] focus:ring-[#087E87]" />
-                    Remember me
-                  </label>
-                </div>
-
                 {errors.root ? (
                   <div className="rounded-xl border border-[#F1C5C5] bg-[#FEF3F3] px-3 py-2 text-sm text-[#C34C4C]">
                     {errors.root.message}
@@ -282,8 +271,9 @@ function LoginPage() {
                   Security information
                 </div>
                 <p className="leading-6">
-                  This restricted access environment is limited to the authorised global administrator workflow and compliance operations.
+                  Sign in with the Global Administrator account to manage workspace records.
                 </p>
+                <Link to="/onboarding" className="mt-2 inline-block text-[#087E87] underline underline-offset-4">Open onboarding</Link>
               </div>
             </div>
           </main>
@@ -296,7 +286,7 @@ function LoginPage() {
 function PasswordRecoveryPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<'request' | 'confirm' | 'reset' | 'success'>('request')
-  const [recoveryEmail, setRecoveryEmail] = useState('bnombamba@icloud.com')
+  const [recoveryEmail, setRecoveryEmail] = useState('')
 
   const requestForm = useForm<RecoveryRequestValues>({
     resolver: zodResolver(recoveryRequestSchema),
@@ -306,9 +296,9 @@ function PasswordRecoveryPage() {
   const resetForm = useForm<ResetPasswordValues>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      token: 'LBT-482153',
-      password: 'NewPassword123!',
-      confirmPassword: 'NewPassword123!',
+      token: '',
+      password: '',
+      confirmPassword: '',
     },
   })
 
@@ -317,6 +307,10 @@ function PasswordRecoveryPage() {
 
   const handleRecoverySubmit = async (values: RecoveryRequestValues) => {
     await wait(700)
+    if (values.email.trim().toLowerCase() !== mockAdminUser.email.toLowerCase()) {
+      requestForm.setError('email', { message: 'Enter the administrator account email.' })
+      return
+    }
     setRecoveryEmail(values.email)
     setStep('confirm')
   }
@@ -324,9 +318,10 @@ function PasswordRecoveryPage() {
   const handleResetSubmit = async (values: ResetPasswordValues) => {
     await wait(700)
     if (values.token.toUpperCase() !== 'LBT-482153') {
-      resetForm.setError('token', { message: 'The mock token is invalid. Try LBT-482153.' })
+      resetForm.setError('token', { message: 'Enter the reset token provided in the previous step.' })
       return
     }
+    resetWorkspacePassword(values.password)
     setStep('success')
   }
 
@@ -337,9 +332,7 @@ function PasswordRecoveryPage() {
           <Link to="/login" className="inline-flex items-center gap-2 text-sm font-light text-[#087E87] hover:text-[#065d68]">
             <ArrowLeft className="h-4 w-4" /> Back to login
           </Link>
-          <div className="rounded-full border border-[#C6A66B] bg-[#FFF7EC] px-3 py-1 text-[10px] font-light uppercase tracking-[0.2em] text-[#102235]">
-            Recovery mode
-          </div>
+          <BrandLogo className="w-32" />
         </div>
 
         {step === 'request' ? (
@@ -393,10 +386,9 @@ function PasswordRecoveryPage() {
               <CheckCircle2 className="h-5 w-5" />
               <span className="text-sm font-light uppercase tracking-[0.18em]">Confirmation</span>
             </div>
-            <h2 className="text-3xl font-light text-[#102235]">Reset instructions sent</h2>
+            <h2 className="text-3xl font-light text-[#102235]">Reset instructions ready</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              We sent a simulated password reset email to <span className="font-light text-[#102235]">{recoveryEmail}</span>.
-              This reset flow uses a secure token to verify the administrator account.
+              A reset token is available in this browser for <span className="font-light text-[#102235]">{recoveryEmail}</span>. Email delivery is unavailable.
             </p>
 
             <div className="mt-6 rounded-2xl border border-[#C6A66B]/40 bg-[#FFF7EC] p-4">
@@ -418,7 +410,7 @@ function PasswordRecoveryPage() {
           <div className="mx-auto max-w-xl">
             <h2 className="text-3xl font-light text-[#102235]">Set a new password</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Use the mock reset token shown in the previous step to validate this simulated recovery action.
+              Enter the reset token from the previous step.
             </p>
 
             <form onSubmit={resetForm.handleSubmit(handleResetSubmit)} className="mt-6 space-y-5">
@@ -508,7 +500,7 @@ function PasswordRecoveryPage() {
             </div>
             <h2 className="mt-5 text-3xl font-light text-[#102235]">Password reset successful</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Your mock password has been updated. You can now return to the login screen and continue with a simulated secure sign-in.
+              Your password was updated for this browser session. Reloading restores the original password.
             </p>
             <button
               type="button"
@@ -527,7 +519,7 @@ function PasswordRecoveryPage() {
 function AccessGrantedPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
-  const email = (state as { email?: string } | null)?.email ?? 'bnombamba@icloud.com'
+  const email = (state as { email?: string } | null)?.email ?? ''
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F6F8FA] px-4 py-10 text-[#102235]">
@@ -536,13 +528,11 @@ function AccessGrantedPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-xl rounded-[30px] border border-[#CFE9E1] bg-[#F1FBF6] p-8 text-center shadow-[0_30px_80px_rgba(22,131,107,0.16)]"
       >
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white text-[#16836B] shadow-sm">
-          <BadgeCheck className="h-10 w-10" />
-        </div>
+        <BrandLogo className="mx-auto w-44" />
         <p className="mt-6 text-xs uppercase tracking-[0.3em] text-[#16836B]">Access granted</p>
         <h1 className="mt-3 text-4xl font-light text-[#102235]">Access confirmed</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          User <span className="font-light text-[#102235]">{email}</span> is now routed to the simulated Lebati workspace for the next design stage.
+          Continue to the Lebathi workspace{email ? <> as <span className="font-light text-[#102235]">{email}</span></> : null}.
         </p>
 
         <div className="mt-8 grid gap-3 rounded-2xl border border-[#BFE6D8] bg-white p-4 text-left text-sm text-slate-700">

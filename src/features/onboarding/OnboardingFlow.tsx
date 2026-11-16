@@ -1,5 +1,6 @@
 import { formatPreferredDate } from '../../services/mockProfile'
 import BrandLogo from '../../components/BrandLogo'
+import { readApprovals, submitApproval, type QueueRecord } from '../../services/approvalQueue'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import {
@@ -80,6 +81,13 @@ type InvitationStatus = 'valid' | 'expired' | 'accepted' | 'invalid' | 'revoked'
 type IdentityStatus = 'not-started' | 'consent-required' | 'in-progress' | 'verified' | 'failed' | 'pending-review' | 'unavailable'
 type ContactStatus = 'not-started' | 'in-progress' | 'verified' | 'failed' | 'expired'
 type ApplicationStatus = 'not-started' | 'pending-approval' | 'approved' | 'rejected' | 'returned-for-correction' | 'verification-pending'
+const applicationStatuses: Record<QueueRecord['status'], ApplicationStatus> = {
+  Pending: 'pending-approval',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  'Needs correction': 'returned-for-correction',
+  'Manual review': 'verification-pending',
+}
 
 type Invitation = {
   id: string
@@ -125,7 +133,7 @@ type OnboardingDraft = {
 const demoInvitations: Invitation[] = [
   {
     id: 'INV-1001',
-    email: 'operator@lebati.demo',
+    email: 'operator@lebathi.example',
     organisationName: 'Cape Gold Betting Group',
     role: 'gambling-operator',
     status: 'valid',
@@ -135,7 +143,7 @@ const demoInvitations: Invitation[] = [
   },
   {
     id: 'INV-1002',
-    email: 'compliance.admin@lebati.demo',
+    email: 'compliance.admin@lebathi.example',
     organisationName: 'Regulatory Compliance Services',
     role: 'compliance-admin',
     status: 'valid',
@@ -145,7 +153,7 @@ const demoInvitations: Invitation[] = [
   },
   {
     id: 'INV-1003',
-    email: 'authorised.user@lebati.demo',
+    email: 'authorised.user@lebathi.example',
     organisationName: 'Berea Operators Network',
     role: 'authorised-user',
     status: 'valid',
@@ -155,7 +163,7 @@ const demoInvitations: Invitation[] = [
   },
   {
     id: 'INV-2001',
-    email: 'expired@lebati.demo',
+    email: 'expired@lebathi.example',
     organisationName: 'Northern Crest Casino',
     role: 'gambling-operator',
     status: 'expired',
@@ -164,7 +172,7 @@ const demoInvitations: Invitation[] = [
   },
   {
     id: 'INV-3001',
-    email: 'revoked@lebati.demo',
+    email: 'revoked@lebathi.example',
     organisationName: 'Coastal Compliance Holdings',
     role: 'compliance-admin',
     status: 'revoked',
@@ -173,7 +181,7 @@ const demoInvitations: Invitation[] = [
   },
   {
     id: 'INV-4001',
-    email: 'failed.identity@lebati.demo',
+    email: 'failed.identity@lebathi.example',
     organisationName: 'Urban Play Consortium',
     role: 'gambling-operator',
     status: 'valid',
@@ -314,7 +322,7 @@ function OnboardingShell({
                   }}
                   className="rounded-full border border-slate-200 px-3 py-2 text-xs font-light uppercase tracking-[0.18em] text-[#102235] transition hover:border-[#087E87] hover:text-[#087E87]"
                 >
-                  Reset demo
+                  Reset onboarding
                 </button>
               </div>
               {children}
@@ -401,7 +409,7 @@ function InvitationPage() {
   return (
     <OnboardingShell
       title="Invitation check"
-      subtitle="Select a demo invitation to explore valid, expired, rejected and correction onboarding journeys."
+      subtitle="Select an invitation to review its status and continue onboarding."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {demoInvitations.map((invitation) => {
@@ -450,9 +458,9 @@ function InvitationPage() {
       <div className="mt-8 rounded-[28px] border border-slate-200 bg-[#F8FAFB] p-5">
         <div className="mb-3 flex items-center gap-2 text-[#102235]">
           <KeyRound className="h-4 w-4 text-[#087E87]" />
-          <span className="text-sm font-light uppercase tracking-[0.18em]">Demo scenario</span>
+          <span className="text-sm font-light uppercase tracking-[0.18em]">Invitation status</span>
         </div>
-        <p className="text-sm text-slate-600">The selected invitation determines the route and application status used during demo review.</p>
+        <p className="text-sm text-slate-600">Your next step depends on the status of this invitation.</p>
       </div>
 
       <div className="mt-6 flex justify-end">
@@ -751,7 +759,7 @@ function IdentityPage() {
   return (
     <OnboardingShell
       title="Verify your identity"
-      subtitle="Complete your identity verification securely through Who You. This is a simulated workflow for demo and approval purposes only."
+      subtitle="Review identity verification outcomes using the records available in this workspace."
     >
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[28px] border border-slate-200 bg-[#F8FAFB] p-5">
@@ -760,7 +768,7 @@ function IdentityPage() {
               <IdCard className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#087E87]">Who You</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#087E87]">Verification record</p>
               <h2 className="text-xl font-light text-[#102235]">Identity verification</h2>
             </div>
           </div>
@@ -771,7 +779,7 @@ function IdentityPage() {
                 <ShieldCheck className="h-4 w-4 text-[#087E87]" />
                 <span className="text-sm font-light">Process overview</span>
               </div>
-              <p className="text-sm leading-6 text-slate-600">We use a mock Who You workflow to demonstrate verification states without collecting or storing real identity documents or biometric data.</p>
+              <p className="text-sm leading-6 text-slate-600">Identity verification here uses workspace records. Keep personal identity documents and biometric data outside this workflow.</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -779,11 +787,11 @@ function IdentityPage() {
                 <FileCheck2 className="h-4 w-4 text-[#C6A66B]" />
                 <span className="text-sm font-light">Privacy notice</span>
               </div>
-              <p className="text-sm leading-6 text-slate-600">Identity verification is a simulated UI flow. No live identity numbers, government records, scans, selfies, or biometric data are collected in this demo.</p>
+              <p className="text-sm leading-6 text-slate-600">External identity services are disconnected. This workflow uses workspace records only.</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <label className="mb-2 block text-sm font-light text-[#102235]">Demo outcome</label>
+              <label className="mb-2 block text-sm font-light text-[#102235]">Verification outcome</label>
               <select
                 value={status}
                 onChange={(event) => handleOutcomeChange(event.target.value as IdentityStatus)}
@@ -843,7 +851,7 @@ function IdentityPage() {
                 <span className="text-sm font-light uppercase tracking-[0.18em]">Verification failed</span>
               </div>
               <h3 className="text-2xl font-light text-[#102235]">Review required</h3>
-              <p className="text-sm leading-6 text-slate-600">The mock verification review did not pass the simulated checks. You may retry or request manual review.</p>
+              <p className="text-sm leading-6 text-slate-600">The verification review did not pass. You may retry or request manual review.</p>
             </div>
           ) : status === 'pending-review' ? (
             <div className="space-y-4">
@@ -861,7 +869,7 @@ function IdentityPage() {
                 <span className="text-sm font-light uppercase tracking-[0.18em]">Unavailable</span>
               </div>
               <h3 className="text-2xl font-light text-[#102235]">Verification unavailable</h3>
-              <p className="text-sm leading-6 text-slate-600">The mock service is temporarily unavailable. Please try again later.</p>
+              <p className="text-sm leading-6 text-slate-600">Verification is unavailable for this outcome. Select another outcome or try again later.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -964,7 +972,7 @@ function ContactPage() {
   return (
     <OnboardingShell
       title="Verify your contact details"
-      subtitle="A fictional OTP challenge confirms the contact channel used for your onboarding application."
+      subtitle="Enter the one-time code shown on this screen. External code delivery is unavailable."
     >
       <div className="mx-auto max-w-3xl rounded-[30px] border border-slate-200 bg-[#F8FAFB] p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
@@ -974,13 +982,14 @@ function ContactPage() {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-[#087E87]">OTP verification</p>
-              <h2 className="mt-1 text-2xl font-light text-[#102235]">Your contact details have been verified successfully.</h2>
+              <h2 className="mt-1 text-2xl font-light text-[#102235]">Confirm your contact details</h2>
             </div>
           </div>
           <div className="rounded-full border border-[#C6A66B] bg-[#FFF7EC] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#102235]">{countdown}s</div>
         </div>
 
-        <div className="mt-8 flex justify-between gap-3">
+        {status !== 'verified' && <p className="mt-4 text-sm">Verification code for this browser: <strong>{OTP_CODE}</strong></p>}
+        <div className="mt-4 flex gap-1.5 sm:gap-3">
           {otpDigits.map((digit, index) => (
             <input
               key={index}
@@ -995,17 +1004,17 @@ function ContactPage() {
               onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => handleKeyDown(index, event)}
               onPaste={handlePaste}
               aria-label={`OTP digit ${index + 1}`}
-              className="h-14 w-12 rounded-xl border border-slate-200 bg-white text-center text-xl font-light text-[#102235] shadow-sm outline-none focus:border-[#087E87] focus:ring-2 focus:ring-[#087E87]/20"
+              className="h-12 w-12 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white text-center text-xl font-light text-[#102235] shadow-sm outline-none focus:border-[#087E87] focus:ring-2 focus:ring-[#087E87]/20 sm:flex-none"
             />
           ))}
         </div>
 
         {status === 'failed' ? (
-          <div className="mt-4 rounded-xl border border-[#F1C5C5] bg-[#FEF3F3] px-3 py-2 text-sm text-[#C34C4C]">The code entered was invalid. Use the demo OTP: {OTP_CODE}.</div>
+          <div className="mt-4 rounded-xl border border-[#F1C5C5] bg-[#FEF3F3] px-3 py-2 text-sm text-[#C34C4C]">The code entered was invalid. Check the code and try again.</div>
         ) : null}
 
         {status === 'expired' ? (
-          <div className="mt-4 rounded-xl border border-[#F1C5C5] bg-[#FEF3F3] px-3 py-2 text-sm text-[#C34C4C]">This mock OTP has expired. Please request a new code.</div>
+          <div className="mt-4 rounded-xl border border-[#F1C5C5] bg-[#FEF3F3] px-3 py-2 text-sm text-[#C34C4C]">This code has expired. Please request a new code.</div>
         ) : null}
 
         {status === 'verified' ? (
@@ -1013,7 +1022,7 @@ function ContactPage() {
         ) : null}
 
         <div className="mt-6 flex items-center justify-between gap-3">
-          <button type="button" onClick={resendCode} className="text-sm font-light text-[#087E87] hover:text-[#065d68]">Resend code</button>
+          <button type="button" onClick={resendCode} className="text-sm font-light text-[#087E87] hover:text-[#065d68]">Restart verification</button>
           <button type="button" onClick={verifyCode} disabled={!isComplete} className="rounded-xl bg-[#102235] px-5 py-3 text-sm font-light text-white hover:bg-[#0d1d2b] disabled:cursor-not-allowed disabled:bg-slate-300">
             Verify code
           </button>
@@ -1036,37 +1045,59 @@ function ReviewPage() {
   const navigate = useNavigate()
   const draft = loadDraft()
   const [acknowledgements, setAcknowledgements] = useState(draft.acknowledgements)
+  const [submissionError, setSubmissionError] = useState('')
+
+  if (!draft.invitationId || !draft.role) return <Navigate to="/onboarding/invitation" replace />
+  if (draft.contactStatus !== 'verified') return <Navigate to="/onboarding/contact" replace />
 
   const canSubmit = acknowledgements.accuracy && acknowledgements.terms && acknowledgements.privacy
 
   const handleSubmitApplication = () => {
     if (!canSubmit) return
 
-    const status: ApplicationStatus =
-      draft.scenario === 'operator-success'
-        ? 'approved'
-        : draft.scenario === 'compliance-pending'
-          ? 'pending-approval'
-          : draft.scenario === 'failed-identity'
-            ? 'verification-pending'
-            : 'returned-for-correction'
+    const checked = draft.identityStatus === 'verified' && draft.contactStatus === 'verified'
+    const prior = readApprovals().find((item) => item.id === draft.applicationReference)
+    if (prior && prior.status !== 'Needs correction') {
+      navigate('/onboarding/status')
+      return
+    }
+    const queueStatus: QueueRecord['status'] = !checked ? 'Manual review' :
+      draft.scenario === 'returned-correction' && !prior ? 'Needs correction' : 'Pending'
 
     const nextDraft = mergeDraft(draft, {
       acknowledgements,
-      applicationStatus: status,
-      applicationReference: getApplicationReference('LBT-APP'),
+      applicationStatus: applicationStatuses[queueStatus],
+      applicationReference: draft.applicationReference || getApplicationReference('LBT-APP'),
       submissionDate: new Date().toISOString(),
     })
 
-    saveDraft(nextDraft)
+    try {
+      submitApproval({
+        id: nextDraft.applicationReference,
+        applicant: [draft.representativeFirstName, draft.representativeSurname].filter(Boolean).join(' ') || draft.invitedEmail,
+        organisation: draft.organisationName,
+        type: draft.role ? ROLE_LABELS[draft.role] : 'Onboarding',
+        status: queueStatus,
+        risk: checked ? 'Low' : 'Medium',
+        owner: 'Compliance desk',
+        verificationStatus: checked ? 'verified' : 'manual-review',
+        submittedAt: nextDraft.submissionDate,
+        lastAction: prior ? 'Application resubmitted' : 'Application received',
+      })
+      saveDraft(nextDraft)
+    } catch {
+      setSubmissionError('This application could not be saved in this browser.')
+      return
+    }
     navigate('/onboarding/status')
   }
 
   return (
     <OnboardingShell
       title="Review your application"
-      subtitle="Confirm the details of your onboarding application before submitting to the demo approval queue."
+      subtitle="Confirm your application details before submitting for review in this workspace."
     >
+      {submissionError && <p role="alert" className="mb-4 text-sm text-[#C34C4C]">{submissionError}</p>}
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-5">
           <div className="rounded-[28px] border border-slate-200 bg-[#F8FAFB] p-5">
@@ -1100,7 +1131,7 @@ function ReviewPage() {
               <span className="text-sm font-light uppercase tracking-[0.18em]">Verification</span>
             </div>
             <div className="space-y-2 text-sm text-slate-700">
-              <div><span className="font-light text-[#102235]">Who You:</span> {draft.identityStatus}</div>
+              <div><span className="font-light text-[#102235]">Identity status:</span> {draft.identityStatus}</div>
               <div><span className="font-light text-[#102235]">Mobile / email OTP:</span> {draft.contactStatus}</div>
               <div><span className="font-light text-[#102235]">Invitation:</span> {draft.invitationId}</div>
             </div>
@@ -1119,11 +1150,11 @@ function ReviewPage() {
             </label>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-[#F8FAFB] p-3">
               <input type="checkbox" checked={acknowledgements.terms} onChange={() => setAcknowledgements((current) => ({ ...current, terms: !current.terms }))} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#087E87]" />
-              <span>I accept the Lebati platform terms applicable to this onboarding journey.</span>
+              <span>I accept the Lebathi platform terms applicable to this onboarding journey.</span>
             </label>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-[#F8FAFB] p-3">
               <input type="checkbox" checked={acknowledgements.privacy} onChange={() => setAcknowledgements((current) => ({ ...current, privacy: !current.privacy }))} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#087E87]" />
-              <span>I acknowledge the privacy notice and understand the simulation is demo-only.</span>
+              <span>I acknowledge the privacy notice and understand these records are stored in this browser.</span>
             </label>
           </div>
         </div>
@@ -1154,13 +1185,13 @@ function StatusPage() {
     },
     approved: {
       title: 'Application approved',
-      description: 'Your organisation and role have been confirmed in this mock environment. You may continue to the demo workspace.',
-      action: 'Continue to demo workspace',
+      description: 'Your organisation and role are approved in the workspace records.',
+      action: 'Continue to workspace',
       tone: 'bg-[#EAF8F3] text-[#16836B]',
     },
     rejected: {
       title: 'Application rejected',
-      description: 'Your onboarding application has been rejected in this fictional workflow. Contact support for guidance on the next steps.',
+      description: 'Your application was rejected. Contact your workspace administrator for guidance.',
       action: 'Review feedback',
       tone: 'bg-[#FEF3F3] text-[#C34C4C]',
     },
@@ -1184,16 +1215,21 @@ function StatusPage() {
     },
   }
 
-  const state = statusMeta[draft.applicationStatus]
+  const decision = readApprovals().find((record) => record.id === draft.applicationReference)
+  const status = decision ? applicationStatuses[decision.status] : draft.applicationStatus
+  const state = statusMeta[status]
+  const nextPage = status === 'returned-for-correction' ? '/onboarding/organisation' :
+    status === 'not-started' ? '/onboarding/review' : '/login'
 
   return (
-    <OnboardingShell title="Application status" subtitle="Your onboarding result is tracked in this mock workflow for demo and design review.">
+    <OnboardingShell title="Application status" subtitle="Review the current status recorded for your application.">
       <div className="mx-auto max-w-2xl rounded-[32px] border border-slate-200 bg-[#F8FAFB] p-8 text-center">
         <div className={`mx-auto inline-flex items-center rounded-full px-4 py-2 text-xs uppercase tracking-[0.2em] ${state.tone}`}>
           {state.title}
         </div>
         <h2 className="mt-6 text-3xl font-light text-[#102235]">{state.title}</h2>
         <p className="mt-4 text-sm leading-7 text-slate-600">{state.description}</p>
+        {decision?.reason && <p className="mt-3 text-sm">{decision.reason}</p>}
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-left text-sm text-slate-700">
           <div className="flex justify-between gap-3 py-2"><span>Reference</span><span className="font-light text-[#102235]">{draft.applicationReference || 'LBT-APP-0000'}</span></div>
@@ -1205,7 +1241,7 @@ function StatusPage() {
           <button type="button" onClick={() => navigate('/onboarding/review')} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-light text-[#102235] hover:border-[#087E87] hover:text-[#087E87]">
             Review details
           </button>
-          <button type="button" onClick={() => navigate('/login')} className="rounded-xl bg-[#102235] px-4 py-3 text-sm font-light text-white hover:bg-[#0d1d2b]">
+          <button type="button" onClick={() => navigate(nextPage)} className="rounded-xl bg-[#102235] px-4 py-3 text-sm font-light text-white hover:bg-[#0d1d2b]">
             {state.action}
           </button>
         </div>

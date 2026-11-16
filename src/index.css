@@ -73,3 +73,16 @@ input {
 [data-theme='dark'] :is(.text-slate-500, .text-slate-400) { color: #94a3b8; }
 [data-theme='dark'] .border-slate-200 { border-color: #334155; }
 [data-theme='dark'] .recharts-cartesian-axis-tick-value { fill: #cbd5e1; }
+
+dialog.workspace-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  width: min(100%, 36rem);
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  overflow-y: auto;
+  border-radius: 24px 0 0 24px;
+}
+dialog.workspace-drawer::backdrop { background: #10223588; }

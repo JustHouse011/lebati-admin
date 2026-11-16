@@ -6,12 +6,15 @@ import {
   Building2,
   Check,
   ChevronDown,
+  CircleHelp,
+  CreditCard,
   Download,
   FileText,
   Gauge,
   IdCard,
   LayoutDashboard,
   Moon,
+  Plug,
   Search,
   Settings,
   ShieldCheck,
@@ -24,8 +27,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import BrandLogo from '../../components/BrandLogo'
+import WorkspaceOverview from './WorkspaceOverview'
+import WorkspaceModule, { type RecordChange } from './WorkspaceModule'
+import { initialRecords, moduleDefinitions, workspaces, type ModulePath, type RecordItem, type Workspace } from './workspaceData'
 import ProfileMenu from '../settings/ProfileMenu'
 import { AccountPage, HelpPage, NotificationsPage, ProfilePage, SecurityPage } from '../settings/SettingsPages'
+import { readApprovals, saveApprovals, type QueueRecord } from '../../services/approvalQueue'
 import { getStoredSessionUser } from '../../services/mockAuth'
 import { getProfile, getNotificationPreferences, formatPreferredDate } from '../../services/mockProfile'
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -59,22 +66,9 @@ type DashboardMetric = {
   positive: boolean
 }
 
-type QueueRecord = {
-  id: string
-  applicant: string
-  organisation: string
-  type: string
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Needs correction' | 'Manual review'
-  risk: 'Low' | 'Medium' | 'High'
-  owner: string
-  verificationStatus: 'verified' | 'incomplete' | 'manual-review'
-  submittedAt: string
-  lastAction: string
-  reason?: string
-}
-
-const APPROVAL_STORAGE_KEY = 'lebati-dashboard-approvals'
 const THEME_STORAGE_KEY = 'lebati-dashboard-theme'
+const WORKSPACE_STORAGE_KEY = 'lebathi-workspace'
+const RECORDS_STORAGE_KEY = 'lebathi-workspace-records-v1'
 const HIGHLIGHT_COLOURS = ['#087E87', '#102235', '#C6A66B', '#16836B', '#C34C4C']
 
 const navMap = {
@@ -82,12 +76,20 @@ const navMap = {
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Verifications', path: '/dashboard/verifications', icon: ShieldCheck },
     { label: 'Beneficiary Registry', path: '/dashboard/beneficiary-registry', icon: Building2 },
+    { label: 'Programmes', path: '/dashboard/programmes', icon: BriefcaseBusiness },
+    { label: 'Transactions', path: '/dashboard/transactions', icon: CreditCard },
+    { label: 'Risk Intelligence', path: '/dashboard/risk-intelligence', icon: Gauge },
+    { label: 'Merchants', path: '/dashboard/merchants', icon: Building2 },
     { label: 'Restrictions', path: '/dashboard/restrictions', icon: AlertTriangle },
+    { label: 'Cases & Appeals', path: '/dashboard/cases', icon: FileText },
+    { label: 'Interventions', path: '/dashboard/interventions', icon: ShieldCheck },
+    { label: 'Financial Education', path: '/dashboard/education', icon: CircleHelp },
     { label: 'Operators', path: '/dashboard/operators', icon: BriefcaseBusiness },
     { label: 'Onboarding Approvals', path: '/dashboard/approvals', icon: Users },
     { label: 'Users & Roles', path: '/dashboard/users-roles', icon: UserCircle2 },
     { label: 'Audit Logs', path: '/dashboard/audit-logs', icon: FileText },
     { label: 'Reports', path: '/dashboard/reports', icon: Gauge },
+    { label: 'Integrations', path: '/dashboard/integrations', icon: Plug },
     { label: 'Settings', path: '/settings/account', icon: Settings },
   ],
   'Compliance Administrator': [
@@ -145,21 +147,16 @@ const approvalPipeline = [
   { name: 'Corrections', value: 7 },
 ]
 
-const initialApprovals: QueueRecord[] = [
-  { id: 'APP-1042', applicant: 'Mpho Ndlovu', organisation: 'Cape Gold Betting Group', type: 'Operator onboarding', status: 'Pending', risk: 'Medium', owner: 'Compliance desk', verificationStatus: 'verified', submittedAt: '2026-11-04', lastAction: 'Awaiting review' },
-  { id: 'APP-1047', applicant: 'Lerato Mokoena', organisation: 'Harbour Resorts SA', type: 'Beneficiary review', status: 'Manual review', risk: 'High', owner: 'Risk operations', verificationStatus: 'manual-review', submittedAt: '2026-11-03', lastAction: 'Identity mismatch escalated' },
-  { id: 'APP-1051', applicant: 'Sipho Mthembu', organisation: 'Berea Operators Network', type: 'Authorised user access', status: 'Needs correction', risk: 'Low', owner: 'Team lead', verificationStatus: 'incomplete', submittedAt: '2026-11-02', lastAction: 'Proof of authority missing', reason: 'Missing delegated authority letter' },
-  { id: 'APP-1055', applicant: 'Naledi Van Wyk', organisation: 'Sunset Play', type: 'Operator onboarding', status: 'Approved', risk: 'Low', owner: 'Compliance desk', verificationStatus: 'verified', submittedAt: '2026-11-01', lastAction: 'Approved by review board' },
-]
-
 function readSession(): DemoUser | null { return getStoredSessionUser() }
 
 function getAllowedPaths(role: DashboardRole) {
   return navMap[role].map((item) => item.path)
 }
 
-function DashboardHeader({ user, onThemeToggle, theme, onNotificationsToggle, notificationsOpen }: {
+function DashboardHeader({ user, workspace, onWorkspaceChange, onThemeToggle, theme, onNotificationsToggle, notificationsOpen }: {
   user: DemoUser
+  workspace: Workspace
+  onWorkspaceChange: (workspace: Workspace) => void
   onThemeToggle: () => void
   theme: 'light' | 'dark'
   onNotificationsToggle: () => void
@@ -184,11 +181,13 @@ function DashboardHeader({ user, onThemeToggle, theme, onNotificationsToggle, no
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className={`hidden items-center gap-2 rounded-full border px-3 py-2 text-sm md:flex ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-200 bg-[#F8FAFB] text-slate-600'}`}>
-          <Search className="h-4 w-4 text-slate-400" strokeWidth={1.75} />
-          <span>Search</span>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {user.role === 'Global Administrator' && <label className="grid min-w-0 gap-1 text-xs">
+          <span className="sr-only">Workspace</span>
+          <select aria-label="Workspace" className="settings-input max-w-full py-2 text-sm" value={workspace} onChange={(event) => onWorkspaceChange(event.target.value as Workspace)}>
+            {Object.entries(workspaces).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>}
         <button type="button" aria-label={themeButtonLabel} title={themeButtonLabel} onClick={onThemeToggle} className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${isDark ? 'border-slate-700 bg-slate-900 text-[#C6A66B]' : 'border-slate-200 bg-[#F8FAFB] text-[#102235]'}`}>
           {isDark ? <Sun className="h-4 w-4" strokeWidth={1.75} /> : <Moon className="h-4 w-4" strokeWidth={1.75} />}
         </button>
@@ -215,24 +214,25 @@ function DashboardHeader({ user, onThemeToggle, theme, onNotificationsToggle, no
   )
 }
 
-function DashboardSidebar({ user, theme }: { user: DemoUser; theme: 'light' | 'dark' }) {
+function DashboardSidebar({ user, theme, workspace }: { user: DemoUser; theme: 'light' | 'dark'; workspace: Workspace }) {
   const location = useLocation()
   const items = navMap[user.role]
   const isDark = theme === 'dark'
 
   return (
-    <aside className={`flex h-screen shrink-0 flex-col border-r ${isDark ? 'border-slate-700 bg-[#0f172a]' : 'border-slate-200 bg-white'} w-16 md:w-20 lg:w-[260px]`}>
+    <aside className={`sticky top-0 flex h-dvh shrink-0 flex-col border-r ${isDark ? 'border-slate-700 bg-[#0f172a]' : 'border-slate-200 bg-white'} w-16 md:w-20 lg:w-[260px]`}>
       <div className={`flex min-h-20 flex-col justify-center gap-2 border-b px-2 py-4 md:px-3 lg:px-5 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
         <BrandLogo className="w-full lg:w-44" />
         <div className={`hidden text-[9px] uppercase tracking-[0.28em] lg:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Operator portal</div>
       </div>
-      <nav className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
+      <nav aria-label="Workspace navigation" className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {items.map(({ label, path, icon: Icon }) => {
           const isActive = location.pathname === path || (path === '/settings/account' && location.pathname.startsWith('/settings/')) || (path !== '/dashboard' && location.pathname.startsWith(path))
+          const itemLabel = workspace === 'nsfas' && path === '/dashboard/beneficiary-registry' ? 'Student Registry' : label
           return (
-            <NavLink key={path} to={path} aria-label={label} title={label} className={`flex items-center justify-center gap-3 rounded-2xl px-2 py-2.5 text-sm transition lg:justify-start lg:px-3 ${isActive ? 'bg-[#087E87] text-white shadow-[0_12px_24px_rgba(8,126,135,0.25)]' : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-[#F3F7FA] hover:text-[#102235]'}`}>
+            <NavLink key={path} to={path} end={path === '/dashboard'} aria-label={itemLabel} title={itemLabel} className={`flex items-center justify-center gap-3 rounded-2xl px-2 py-2.5 text-sm transition lg:justify-start lg:px-3 ${isActive ? 'bg-[#087E87] text-white shadow-[0_12px_24px_rgba(8,126,135,0.25)]' : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-[#F3F7FA] hover:text-[#102235]'}`}>
               <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              <span className="hidden lg:inline">{label}</span>
+              <span className="hidden lg:inline">{itemLabel}</span>
             </NavLink>
           )
         })}
@@ -242,7 +242,7 @@ function DashboardSidebar({ user, theme }: { user: DemoUser; theme: 'light' | 'd
           <ShieldCheck className="h-4 w-4 text-[#087E87]" strokeWidth={1.75} />
           <span className="text-[10px] uppercase tracking-[0.2em]">Status</span>
         </div>
-        <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Risk controls are active and all regulatory checkpoints are within confidence thresholds.</p>
+        <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Workspace records are managed in this browser.</p>
       </div>
     </aside>
   )
@@ -251,6 +251,7 @@ function DashboardSidebar({ user, theme }: { user: DemoUser; theme: 'light' | 'd
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
+      <div role="status" className="settings-card flex items-center gap-4"><BrandLogo className="w-28" /><span className="text-sm">Loading workspace</span></div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-[24px] border border-slate-200 bg-slate-100" />)}</div>
       <div className="grid gap-6 xl:grid-cols-[1.5fr_0.95fr]">
         <div className="h-64 animate-pulse rounded-[28px] border border-slate-200 bg-slate-100" />
@@ -415,12 +416,7 @@ function OverviewPage({ user }: { user: DemoUser }) {
 }
 
 function ApprovalQueuePage() {
-  const [approvals, setApprovals] = useState<QueueRecord[]>(() => {
-    if (typeof window === 'undefined') return initialApprovals
-    const stored = window.localStorage.getItem(APPROVAL_STORAGE_KEY)
-    if (!stored) return initialApprovals
-    try { return JSON.parse(stored) as QueueRecord[] } catch { return initialApprovals }
-  })
+  const [approvals, setApprovals] = useState(readApprovals)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | QueueRecord['status']>('all')
@@ -431,12 +427,14 @@ function ApprovalQueuePage() {
   const [decisionReason, setDecisionReason] = useState('')
 
   useEffect(() => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(APPROVAL_STORAGE_KEY, JSON.stringify(approvals))
-  }, [approvals])
+    const refresh = () => setApprovals(readApprovals())
+    window.addEventListener('storage', refresh)
+    return () => window.removeEventListener('storage', refresh)
+  }, [])
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase()
-    return approvals.filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter)).filter((item) => !query || [item.applicant, item.organisation, item.type].join(' ').toLowerCase().includes(query)).sort((a, b) => {
+    return approvals.filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter)).filter((item) => !query || [item.id, item.applicant, item.organisation, item.type].join(' ').toLowerCase().includes(query)).sort((a, b) => {
       if (sortKey === 'risk') {
         const order = { High: 3, Medium: 2, Low: 1 }
         return order[b.risk] - order[a.risk]
@@ -460,7 +458,13 @@ function ApprovalQueuePage() {
       return
     }
     const nextStatus: QueueRecord['status'] = action === 'Approve' ? 'Approved' : action === 'Reject' ? 'Rejected' : action === 'Return for Correction' ? 'Needs correction' : 'Manual review'
-    const updated = approvals.map((entry) => (entry.id === item.id ? { ...entry, status: nextStatus, lastAction: `${action}d`, reason: decisionReason || entry.reason } : entry))
+    const updated = readApprovals().map((entry) => (entry.id === item.id ? { ...entry, status: nextStatus, lastAction: 'Application status updated to ' + nextStatus.toLowerCase(), reason: decisionReason.trim() || entry.reason } : entry))
+    try {
+      saveApprovals(updated)
+    } catch {
+      window.alert('This decision could not be saved in this browser.')
+      return
+    }
     setApprovals(updated)
     setDecisionReason('')
     setDrawerOpen(false)
@@ -593,7 +597,7 @@ function ApprovalQueuePage() {
   )
 }
 
-function DashboardView({ user }: { user: DemoUser }) {
+function DashboardView({ user, workspace, records, change }: { user: DemoUser; workspace: Workspace; records: RecordItem[]; change: RecordChange }) {
   const location = useLocation()
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -610,7 +614,31 @@ function DashboardView({ user }: { user: DemoUser }) {
 
   if (routePath === '/dashboard/settings') return <AccountPage />
   if (routePath === '/dashboard/approvals') return <ApprovalQueuePage />
+  if (user.role === 'Global Administrator') {
+    const module = routePath.split('/')[2] as ModulePath
+    const scopedRecords = workspace === 'global' ? records : records.filter((item) => item.workspace === workspace)
+    if (Object.hasOwn(moduleDefinitions, module)) return <WorkspaceModule key={workspace + module} workspace={workspace} module={module} records={scopedRecords} change={change} />
+    return <WorkspaceOverview key={workspace} workspace={workspace} records={scopedRecords} reports={routePath === '/dashboard/reports'} />
+  }
   return <OverviewPage user={user} />
+}
+
+function readWorkspace(): Workspace {
+  const stored = localStorage.getItem(WORKSPACE_STORAGE_KEY)
+  return stored === 'sassa' || stored === 'nsfas' ? stored : 'global'
+}
+
+function readRecords(): RecordItem[] {
+  try {
+    const saved = localStorage.getItem(RECORDS_STORAGE_KEY)
+    if (saved) {
+      const records: unknown = JSON.parse(saved)
+      if (Array.isArray(records) && records.every((item) => item && typeof item.id === 'string' && typeof item.fields === 'object' && item.fields)) return records
+    }
+  } catch {
+    return initialRecords
+  }
+  return initialRecords
 }
 
 function DashboardShell() {
@@ -622,7 +650,42 @@ function DashboardShell() {
     return stored === 'dark' ? 'dark' : 'light'
   })
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [workspace, setWorkspace] = useState(readWorkspace)
+  const [records, setRecords] = useState(readRecords)
   const location = useLocation()
+  const changeRecord: RecordChange = (record, action, add) => {
+    const current = readRecords()
+    const audit: RecordItem = {
+      id: 'A-' + crypto.randomUUID(),
+      kind: 'audit',
+      workspace: record.workspace,
+      programme: record.programme,
+      name: action,
+      date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Africa/Johannesburg' }),
+      status: 'Recorded',
+      detail: 'Recorded in this browser.',
+      fields: {
+        Record: record.id,
+        Actor: user?.role ?? 'Global Administrator',
+        Decision: record.status,
+        ...(record.kind === 'restriction' ? {
+          'Policy reference': record.fields['Policy reference'],
+          Reason: record.fields.Reason,
+          Evidence: record.fields.Evidence,
+          'Review date': record.fields['Review date'],
+        } : {}),
+        ...(record.kind === 'case' && record.fields['Review decision'] ? { Notes: record.fields['Review decision'] } : {}),
+      },
+    }
+    const next = [...(add ? [...current, record] : current.map((item) => item.id === record.id ? record : item)), audit]
+    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(next))
+    setRecords(next)
+  }
+  const changeWorkspace = (next: Workspace) => {
+    setWorkspace(next)
+    localStorage.setItem(WORKSPACE_STORAGE_KEY, next)
+    navigate('/dashboard')
+  }
   useEffect(() => {
     const refresh = () => setTheme(window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light')
     window.addEventListener('lebati-preferences-change', refresh)
@@ -645,13 +708,14 @@ function DashboardShell() {
   }, [theme])
 
   if (!user) return null
+  const page = <DashboardView user={user} workspace={workspace} records={records} change={changeRecord} />
 
   return (
     <div data-theme={theme} className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-[#F6F8FA] text-[#102235]'}`}>
       <div className="flex min-h-screen">
-        <DashboardSidebar user={user} theme={theme} />
+        <DashboardSidebar user={user} theme={theme} workspace={workspace} />
         <main className={`min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-[#F6F8FA]'}`}>
-          <DashboardHeader user={user} onThemeToggle={() => setTheme((value) => (value === 'light' ? 'dark' : 'light'))} theme={theme} onNotificationsToggle={() => setNotificationsOpen((value) => !value)} notificationsOpen={notificationsOpen} />
+          <DashboardHeader user={user} workspace={workspace} onWorkspaceChange={changeWorkspace} onThemeToggle={() => setTheme((value) => (value === 'light' ? 'dark' : 'light'))} theme={theme} onNotificationsToggle={() => setNotificationsOpen((value) => !value)} notificationsOpen={notificationsOpen} />
           {location.pathname.startsWith('/settings') ? <Routes>
             <Route path="profile" element={<ProfilePage />} />
             <Route path="account" element={<AccountPage />} />
@@ -660,14 +724,7 @@ function DashboardShell() {
             <Route path="help" element={<HelpPage />} />
             <Route path="*" element={<AccountPage />} />
           </Routes> : <Routes>
-            <Route path="/" element={<DashboardView user={user} />} />
-            <Route path="/dashboard" element={<DashboardView user={user} />} />
-            <Route path="/approvals" element={<DashboardView user={user} />} />
-            <Route path="/verifications" element={<DashboardView user={user} />} />
-            <Route path="/restrictions" element={<DashboardView user={user} />} />
-            <Route path="/operators" element={<DashboardView user={user} />} />
-            <Route path="/organisation" element={<DashboardView user={user} />} />
-            <Route path="*" element={<DashboardView user={user} />} />
+            <Route path="*" element={page} />
           </Routes>}
         </main>
       </div>

@@ -28,11 +28,15 @@ export function validateMockCredentials(email: string, password: string): MockUs
 
 // Memory-only demonstration. Reloading the application restores the demo password.
 let currentMockPassword = '12345678'
+export function resetWorkspacePassword(next: string) {
+  currentMockPassword = next
+}
+
 export function changeMockPassword(current: string, next: string) {
   if (current !== currentMockPassword) throw new Error('Current password is incorrect.')
   if (next.length < 8 || !/[a-z]/.test(next) || !/[A-Z]/.test(next) || !/\d/.test(next)) throw new Error('Use at least 8 characters, uppercase, lowercase and a number.')
   if (current === next) throw new Error('Choose a different new password.')
-  currentMockPassword = next
+  resetWorkspacePassword(next)
 }
 export function logout() {
   window.sessionStorage.removeItem(SESSION_STORAGE_KEY)

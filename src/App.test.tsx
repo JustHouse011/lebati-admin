@@ -59,7 +59,7 @@ describe('Lebati Stage A flows', () => {
     fireEvent.click(screen.getByRole('button', { name: /request reset link/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/reset instructions sent/i)).toBeInTheDocument()
+      expect(screen.getByText(/reset instructions ready/i)).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /continue to reset password/i }))
