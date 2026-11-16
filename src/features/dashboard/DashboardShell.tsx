@@ -13,6 +13,7 @@ import {
   Gauge,
   IdCard,
   LayoutDashboard,
+  MapPin,
   Moon,
   Plug,
   Search,
@@ -25,7 +26,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { APP_NAME } from '../../appName'
 import BrandLogo from '../../components/BrandLogo'
 import WorkspaceOverview from './WorkspaceOverview'
@@ -51,6 +52,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+
+const GeographicRiskPage = lazy(() => import('../geography/GeographicRiskPage'))
+const globalGeographicAccess = { role: 'Global Administrator' } as const
 
 type DashboardRole = 'Global Administrator' | 'Compliance Administrator' | 'Gambling Operator' | 'Authorised User'
 
@@ -80,6 +84,7 @@ const navMap = {
     { label: 'Programmes', path: '/dashboard/programmes', icon: BriefcaseBusiness },
     { label: 'Transactions', path: '/dashboard/transactions', icon: CreditCard },
     { label: 'Risk Intelligence', path: '/dashboard/risk-intelligence', icon: Gauge },
+    { label: 'Geographic Risk Intelligence', path: '/dashboard/geographic-risk', icon: MapPin },
     { label: 'Merchants', path: '/dashboard/merchants', icon: Building2 },
     { label: 'Restrictions', path: '/dashboard/restrictions', icon: AlertTriangle },
     { label: 'Cases & Appeals', path: '/dashboard/cases', icon: FileText },
@@ -616,6 +621,11 @@ function DashboardView({ user, workspace, records, change }: { user: DemoUser; w
   if (routePath === '/dashboard/settings') return <AccountPage />
   if (routePath === '/dashboard/approvals') return <ApprovalQueuePage />
   if (user.role === 'Global Administrator') {
+    if (routePath === '/dashboard/geographic-risk') return (
+      <Suspense fallback={<DashboardSkeleton />}>
+        <GeographicRiskPage workspace={workspace} access={globalGeographicAccess} />
+      </Suspense>
+    )
     const module = routePath.split('/')[2] as ModulePath
     const scopedRecords = workspace === 'global' ? records : records.filter((item) => item.workspace === workspace)
     if (Object.hasOwn(moduleDefinitions, module)) return <WorkspaceModule key={workspace + module} workspace={workspace} module={module} records={scopedRecords} change={change} />

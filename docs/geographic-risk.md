@@ -1,0 +1,19 @@
+# Geographic Risk Intelligence
+
+Open **Geographic Risk Intelligence** from the dashboard sidebar and select Global, NSFAS or SASSA in the workspace switcher. The map starts at the province level. Select a province, district or metro, municipality, then a covered town. The search field and drill-down selector provide keyboard alternatives to interacting with the map.
+
+## Sources
+
+- Boundaries represent 2020. They are derived from the simplified South African ADM1, ADM2 and ADM3 releases of [geoBoundaries](https://github.com/wmgeolab/geoBoundaries/tree/9469f09/releaseData/gbOpen/ZAF), sourced from OCHA ROSEA and the South African Municipal Demarcation Board under [CC BY 3.0 IGO](https://creativecommons.org/licenses/by/3.0/igo/). The ADM3 layer includes eight metropolitan areas as municipality shapes. Names with clear spelling or naming corrections are shown with those corrections. Parent assignments are derived by geometric containment and the boundaries are projected to compact SVG paths.
+- Selected town-centre points are derived from the [GeoNames South Africa extract](https://download.geonames.org/export/dump/ZA.zip) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Points are attached to their containing municipality and represent locations, not town boundaries. The map covers 27 towns and does not treat missing data elsewhere as zero risk.
+- Geographic statistics are deterministic synthetic aggregates for May–October 2026. Student and beneficiary cohorts are separate. University and TVET cohorts are fictional and do not identify actual institutions. The assistant calculates supported questions against the same scoped aggregate data used for tables and export.
+
+To rebuild the static map asset, download the simplified files at the pinned geoBoundaries revision, extract the GeoNames `ZA.txt`, and run `node scripts/build-za-geography.mjs ADM1.geojson ADM2.geojson ADM3.geojson ZA.txt` from the repository root.
+
+## Data model and production access
+
+Fixed, disjoint cohorts represent groups that remain stable over the reporting months. Population and gambling prevalence count each qualifying participant once across the period. Merchant and risk filters narrow the numerator. The spending-share denominator is all spending in the scope and the flagged-transaction denominator is spending activity in the selected category across classifications. Review events per 1,000 use the monitored population. Referral and human-review counts are snapshots at the end of the selected period.
+
+This browser implementation ships only fictional aggregate cohort data and public boundaries. It withholds fixed cohorts from all views when any published population or subgroup falls below ten. The existing portal signs in as Global Administrator only. The reporting model also supports scoped NSFAS and SASSA administrators and agents with programme-and-area grants. Those permissions are exercised in tests. They are not trusted production authorization or case access.
+
+Before processing or connecting institutional data, replace the browser data generator with an authenticated reporting API. The server must resolve role, programme and area grants from verified identity, enforce assignment-based case access separately, and return aggregate results only. Charts, detail panels, exports and assistant answers must use that same authorization and publication policy. Production publication must cover minimum distinct-person thresholds, complementary suppression and protection against differencing across repeated or combined queries. Verify merchant classification and geographic attribution, document source provenance and freshness, and establish an appropriate lawful basis and POPIA-compliant controls before enabling any real data. Flags support human review and do not establish misuse or wrongdoing.
