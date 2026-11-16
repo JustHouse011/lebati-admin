@@ -1,5 +1,5 @@
 import { ArrowUpRight, Download } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { type RecordItem, type Workspace, workspaces } from './workspaceData'
@@ -9,10 +9,13 @@ import { downloadCsv, filterRecords, matchesStatus, recordFilters, type Filters 
 export function WorkspaceFilters({ programmes }: { programmes: RecordItem[] }) {
   const [params, setParams] = useSearchParams()
   const filters = recordFilters(params)
+  const latestParams = useRef(params)
+  useLayoutEffect(() => { latestParams.current = params }, [params])
   const setFilter = (key: keyof Filters, value: string) => {
-    const next = new URLSearchParams(params)
+    const next = new URLSearchParams(latestParams.current)
     if (value) next.set(key, value)
     else next.delete(key)
+    latestParams.current = next
     setParams(next, { replace: true, flushSync: true })
   }
   return (
