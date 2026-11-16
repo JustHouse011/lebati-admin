@@ -3,8 +3,8 @@ export default function BrandLogo({ className }: { className: string }) {
     <img
       src={`${import.meta.env.BASE_URL}Lebathi%20Logo.svg`}
       alt="Lebathi"
-      width={24893}
-      height={4702}
+      width={17000}
+      height={5284}
       className={`block h-auto max-w-full ${className}`}
     />
   )
