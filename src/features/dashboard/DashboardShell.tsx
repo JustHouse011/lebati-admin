@@ -15,6 +15,8 @@ import {
   LayoutDashboard,
   MapPin,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plug,
   Search,
   Settings,
@@ -225,26 +227,37 @@ function DashboardSidebar({ user, theme, workspace }: { user: DemoUser; theme: '
   const location = useLocation()
   const items = navMap[user.role]
   const isDark = theme === 'dark'
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('lebati-sidebar-collapsed') === 'true')
+  const toggleSidebar = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem('lebati-sidebar-collapsed', String(next))
+  }
 
   return (
-    <aside className={`sticky top-0 flex h-dvh shrink-0 flex-col border-r ${isDark ? 'border-slate-700 bg-[#0f172a]' : 'border-slate-200 bg-white'} w-16 md:w-20 lg:w-[260px]`}>
-      <div className={`flex min-h-20 flex-col justify-center gap-2 border-b px-2 py-4 md:px-3 lg:px-5 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+    <aside aria-label="Main sidebar" className={`sticky top-0 flex h-dvh shrink-0 flex-col border-r transition-[width] duration-200 motion-reduce:transition-none ${isDark ? 'border-slate-700 bg-[#0f172a]' : 'border-slate-200 bg-white'} w-16 md:w-20 ${collapsed ? 'lg:w-20' : 'lg:w-[260px]'}`}>
+      <div className={`flex min-h-20 flex-col justify-center gap-2 border-b px-2 py-4 md:px-3 ${collapsed ? '' : 'lg:px-5'} ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
         <BrandLogo className="w-full lg:w-44" />
-        <div className={`hidden text-xs lg:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{APP_NAME}</div>
+        <div className={`hidden text-xs ${collapsed ? '' : 'lg:block'} ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{APP_NAME}</div>
+        <button type="button" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed} aria-controls="workspace-navigation" onClick={toggleSidebar}
+          className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-slate-400/40 text-xs hover:bg-teal/10 focus-visible:outline-2 focus-visible:outline-teal lg:flex">
+          {collapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <><PanelLeftClose size={17} aria-hidden="true" /><span>Collapse sidebar</span></>}
+        </button>
       </div>
-      <nav aria-label="Workspace navigation" className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
+      <nav id="workspace-navigation" aria-label="Workspace navigation" className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {items.map(({ label, path, icon: Icon }) => {
           const isActive = location.pathname === path || (path === '/settings/account' && location.pathname.startsWith('/settings/')) || (path !== '/dashboard' && location.pathname.startsWith(path))
           const itemLabel = workspace === 'nsfas' && path === '/dashboard/beneficiary-registry' ? 'Student Registry' : label
           return (
-            <NavLink key={path} to={path} end={path === '/dashboard'} aria-label={itemLabel} title={itemLabel} className={`flex items-center justify-center gap-3 rounded-2xl px-2 py-2.5 text-sm transition lg:justify-start lg:px-3 ${isActive ? 'bg-[#087E87] text-white shadow-[0_12px_24px_rgba(8,126,135,0.25)]' : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-[#F3F7FA] hover:text-[#102235]'}`}>
-              <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              <span className="hidden lg:inline">{itemLabel}</span>
+            <NavLink key={path} to={path} end={path === '/dashboard'} aria-label={itemLabel} title={itemLabel} className={`flex items-center justify-center gap-3 rounded-2xl px-2 py-2.5 text-sm transition ${collapsed ? '' : 'lg:justify-start lg:px-3'} ${isActive ? 'bg-[#087E87] text-white shadow-[0_12px_24px_rgba(8,126,135,0.25)]' : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-[#F3F7FA] hover:text-[#102235]'}`}>
+              <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+              <span className={collapsed ? 'hidden' : 'hidden lg:inline'}>{itemLabel}</span>
             </NavLink>
           )
         })}
       </nav>
-      <div className={`mt-auto hidden lg:block rounded-[26px] border p-4 ${isDark ? 'border-slate-700 bg-slate-900/70' : 'border-[#C6A66B]/30 bg-[#FFF9F0]'}`}>
+      <div className={`mt-auto hidden ${collapsed ? '' : 'lg:block'} rounded-[26px] border p-4 ${isDark ? 'border-slate-700 bg-slate-900/70' : 'border-[#C6A66B]/30 bg-[#FFF9F0]'}`}>
         <div className={`mb-2 flex items-center gap-2 ${isDark ? 'text-slate-200' : 'text-[#102235]'}`}>
           <ShieldCheck className="h-4 w-4 text-[#087E87]" strokeWidth={1.75} />
           <span className="text-[10px] uppercase tracking-[0.2em]">Status</span>
