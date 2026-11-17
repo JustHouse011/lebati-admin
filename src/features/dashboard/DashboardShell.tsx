@@ -29,6 +29,7 @@ import {
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { APP_NAME } from '../../appName'
 import BrandLogo from '../../components/BrandLogo'
+import AssistantProvider from '../assistant/AssistantProvider'
 import WorkspaceOverview from './WorkspaceOverview'
 import WorkspaceModule, { type RecordChange } from './WorkspaceModule'
 import { initialRecords, moduleDefinitions, workspaces, type ModulePath, type RecordItem, type Workspace } from './workspaceData'
@@ -723,6 +724,7 @@ function DashboardShell() {
 
   return (
     <div data-theme={theme} className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-[#F6F8FA] text-[#102235]'}`}>
+      <AssistantProvider workspace={workspace}>
       <div className="flex min-h-screen">
         <DashboardSidebar user={user} theme={theme} workspace={workspace} />
         <main className={`min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-[#F6F8FA]'}`}>
@@ -739,6 +741,7 @@ function DashboardShell() {
           </Routes>}
         </main>
       </div>
+      </AssistantProvider>
     </div>
   )
 }

@@ -86,3 +86,11 @@ dialog.workspace-drawer {
   border-radius: 24px 0 0 24px;
 }
 dialog.workspace-drawer::backdrop { background: #10223588; }
+
+.assistant-markdown :is(ul, ol) { padding-inline-start: 1.25rem; margin-block: .5rem; }
+.assistant-markdown ul { list-style: disc; }
+.assistant-markdown ol { list-style: decimal; }
+.assistant-markdown :is(h1, h2, h3) { font-size: 1rem; margin: .65rem 0 .25rem; }
+.assistant-markdown :is(p + p, blockquote, pre) { margin-block: .6rem; }
+.assistant-markdown :is(pre, code) { white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-markdown strong { background: #c6a66b2b; border-radius: .18rem; padding-inline: .1rem; }

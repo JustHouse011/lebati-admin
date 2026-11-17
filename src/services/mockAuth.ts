@@ -40,6 +40,7 @@ export function changeMockPassword(current: string, next: string) {
 }
 export function logout() {
   window.sessionStorage.removeItem(SESSION_STORAGE_KEY)
+  void fetch('/api/assistant', { method: 'DELETE', credentials: 'same-origin', keepalive: true }).catch(() => {})
 }
 
 export function persistAuthenticatedUser(user: MockUser) {

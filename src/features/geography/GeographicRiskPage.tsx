@@ -1,7 +1,7 @@
 import { Bot, Download, MapPin, Search, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { downloadCsv } from '../dashboard/workspaceRecords'
-import { answerGeographicQuestion, suggestions } from './geographicAnswers'
+import { AssistantContext } from '../assistant/assistantContext'
 import { GeographicTrends, MerchantBreakdown, ProvinceComparison } from './GeographicCharts'
 import GeographicMap from './GeographicMap'
 import GeographicRankings, { type RankingRow } from './GeographicRankings'
@@ -71,29 +71,8 @@ function AreaDrawer({ row, workspace, filters, onClose, onDrill }: {
   </dialog>
 }
 
-function GeographicAssistant({ answer, workspace }: { answer: (question: string) => string; workspace: GeoWorkspace }) {
-  const [question, setQuestion] = useState('')
-  const [asked, setAsked] = useState('')
-  const prompts = suggestions.filter((item) => workspace === 'global' || (workspace === 'nsfas' ? !item.includes('SASSA') : !item.includes('NSFAS')))
-  return <section className="settings-card">
-    <h3 className="flex items-center gap-2 text-lg"><Bot size={19} aria-hidden="true" /> Lebati AI</h3>
-    <p className="mt-1 text-xs opacity-75">Answers are calculated from the selected reporting scope and filters.</p>
-    <div className="mt-4 flex flex-wrap gap-2">{prompts.map((prompt) =>
-      <button key={prompt} type="button" className="settings-button secondary text-left" onClick={() => { setQuestion(prompt); setAsked(prompt) }}>{prompt}</button>
-    )}</div>
-    <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); setAsked(question.trim()) }}>
-      <label className="grid w-full max-w-xl gap-1 text-sm">Ask about geographic risk
-        <input className="settings-input" maxLength={240} value={question} onChange={(event) => setQuestion(event.target.value)} />
-      </label>
-      <button type="submit" className="settings-button" disabled={!question.trim()}>Ask</button>
-    </form>
-    {asked && <div role="status" className="mt-4 rounded-xl border border-slate-200 p-4 text-sm leading-6">
-      <p className="mb-2 opacity-75">{asked}</p><p>{answer(asked)}</p>
-    </div>}
-  </section>
-}
-
 function GeographicDashboard({ workspace, access, geography }: { workspace: GeoWorkspace; access: GeoAccess; geography: Geography }) {
+  const openAssistant = useContext(AssistantContext)
   const [filters, setFilters] = useState(defaultFilters)
   const [selection, setSelection] = useState(country)
   const [measure, setMeasure] = useState<MapMeasure>('eventRate')
@@ -225,7 +204,13 @@ function GeographicDashboard({ workspace, access, geography }: { workspace: GeoW
       {ranking === 'institutions' && <p className="mt-2 text-xs opacity-75">University and TVET groups are fictional cohorts grouped by town. They do not identify actual institutions.</p>}
       <GeographicRankings key={ranking + selection.id} rows={rows} scope={rankingLabels[ranking]} onOpen={setDetail} />
     </section>
-    <GeographicAssistant workspace={workspace} answer={(question) => answerGeographicQuestion(question, corpus, selection, filters, geography)} />
+    <section className="settings-card">
+      <h3 className="flex items-center gap-2 text-lg"><Bot size={19} aria-hidden="true" /> Reporting questions</h3>
+      <button type="button" className="settings-button secondary mt-3" onClick={() => {
+        const programme = workspaceProgrammes.find((item) => item.id === filters.programme)?.label
+        openAssistant(`Summarise review indicators and gambling-related spending in ${selection.name} for ${displayPeriod(filters.from, filters.to)}${programme ? ', programme: ' + programme : ''}${filters.category ? ', merchant category: ' + filters.category : ''}${filters.classification ? ', classification: ' + filters.classification : ''}.`)
+      }}>Ask Lebati AI about this area</button>
+    </section>
     {detail && <AreaDrawer row={detail} workspace={workspace} filters={filters} onClose={() => setDetail(null)} onDrill={openOnMap} />}
   </div>
 }

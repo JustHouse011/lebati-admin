@@ -1,6 +1,6 @@
-import { MapPin } from 'lucide-react'
+import { MapPin, RotateCcw } from 'lucide-react'
 import { useId } from 'react'
-import { showMeasure, geographyLevels, type Area, type MapMeasure, type Metrics } from './geographicRisk'
+import { country, showMeasure, geographyLevels, type Area, type MapMeasure, type Metrics } from './geographicRisk'
 
 export type AreaRow = { area: Area; metrics: Metrics | null }
 const measures: Record<MapMeasure, string> = {
@@ -36,11 +36,16 @@ export default function GeographicMap({ selected, trail, rows, measure, onMeasur
           <h3 className="flex items-center gap-2 text-lg"><MapPin size={18} aria-hidden="true" /> {selected.name}</h3>
           <p className="mt-1 text-xs opacity-70">{geographyLevels[selected.level]} · {rows.length ? 'Select an area to drill down' : 'Selected area'}</p>
         </div>
+        <div className="flex flex-wrap items-end gap-2">
+        <button type="button" className="settings-button secondary" disabled={selected.id === country.id} onClick={() => onSelect(country)}>
+          <RotateCcw size={15} aria-hidden="true" /> Reset map
+        </button>
         <label className="grid gap-1 text-xs">Map measure
           <select aria-label="Map measure" value={measure} onChange={(event) => onMeasure(event.target.value as MapMeasure)} className="settings-input max-w-full">
             {Object.entries(measures).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </label>
+        </div>
       </div>
       <svg viewBox={frame?.join(' ')} role="group" aria-label={selected.name + ' interactive map'}
         className="h-[24rem] w-full rounded-2xl border border-slate-200 bg-[#F8FAFB] sm:h-[31rem]">

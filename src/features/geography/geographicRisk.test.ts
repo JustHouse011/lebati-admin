@@ -1,7 +1,6 @@
 /// <reference types="node" />
 
 import { readFileSync } from 'node:fs'
-import { answerGeographicQuestion, suggestions } from './geographicAnswers'
 import { aggregate, authorisedCohorts, categories, country, defaultFilters, indexGeography, minimumCohort,
   syntheticCohorts, type Area, type Cohort } from './geographicRisk'
 
@@ -69,14 +68,4 @@ describe('geographic publication', () => {
     expect(agent.every((cohort) => cohort.programme === grant.programme && geography.contains(cohort.place, grant.area))).toBe(true)
   })
 
-  it('answers geographic questions from the scoped aggregate and states its period and denominator', () => {
-    const nsfas = authorisedCohorts(data, globalAccess, 'nsfas', geography)
-    const spend = answerGeographicQuestion(suggestions[0], nsfas, country, defaultFilters, geography)
-    expect(spend).toMatch(/highest recorded gambling-related spending/)
-    expect(spend).toMatch(/monitored participants/)
-    expect(spend).toMatch(/2026-05 to 2026-10.*synthetic/)
-    const rates = answerGeographicQuestion(suggestions[1], nsfas, country, defaultFilters, geography)
-    expect(rates).toMatch(/flagged out of .* recorded transactions/)
-    expect(answerGeographicQuestion(suggestions[3], nsfas, country, defaultFilters, geography)).toMatch(/No reportable synthetic data/)
-  })
 })
