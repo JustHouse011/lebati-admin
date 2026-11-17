@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import {
-  currentSession, establishSession, parseAccounts, permittedWorkspaces, revokeSession, sessionCookie, verifyPassword, workspaceSchema,
-} from './access'
-import { generateAnswer, type Message, type ProviderInput } from './provider'
-import { fingerprint, redisStore, type AssistantStore } from './store'
+  currentSession, establishSession, parseAccounts, permittedWorkspaces, revokeSession, sessionCookie, sessionToken, verifyPassword, workspaceSchema,
+} from './access.js'
+import { generateAnswer, providerFailureMessage, type Message, type ProviderInput } from './provider.js'
+import { fingerprint, redisStore, type AssistantStore } from './store.js'
 
 const historySeconds = 30 * 60
 // This is a conservative block for common identifiers. Fictional datasets never contain person-level records.
@@ -61,7 +61,7 @@ export function createAssistantHandler(dependencies: Dependencies = {}) {
   const apiKey = env.OPENAI_API_KEY?.trim()
   const url = env.LEBATI_AI_REDIS_URL || env.UPSTASH_REDIS_REST_URL
   const token = env.LEBATI_AI_REDIS_TOKEN || env.UPSTASH_REDIS_REST_TOKEN
-  const audit = dependencies.audit ?? ((entry) => console.info(JSON.stringify({ system: 'lebati-ai', at: new Date().toISOString(), ...entry })))
+  const recordAudit = dependencies.audit ?? ((entry) => console.info(JSON.stringify({ system: 'lebati-ai', at: new Date().toISOString(), ...entry })))
   const generate = dependencies.generate ?? generateAnswer
   let store = dependencies.store
   const configMessage = env.LEBATI_AI_MODE === 'production'
@@ -71,12 +71,17 @@ export function createAssistantHandler(dependencies: Dependencies = {}) {
         ? 'The assistant requires synthetic mode, server accounts and a rate-limit store.' : null
 
   return async function handle(request: Request): Promise<Response> {
+    const requestId = request.headers.get('x-lebati-request-id') ?? randomUUID()
+    const audit = (entry: Record<string, unknown>) => recordAudit({ ...entry, requestId })
     const origin = new URL(request.url)
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname)
     if (origin.protocol !== 'https:' && !loopback) return message('HTTPS is required.', 403)
     if (!['GET', 'POST', 'DELETE'].includes(request.method)) return message('Method not allowed.', 405, { Allow: 'GET, POST, DELETE' })
     if (request.method !== 'GET' && request.headers.get('origin') !== origin.origin) return message('Request origin denied.', 403)
     if (configMessage || !apiKey || !accounts) {
+      if (request.method === 'POST' && new URL(request.url).pathname === '/api/ai/chat' && !sessionToken(request)) {
+        return message('Sign in to Lebati AI first.', 401)
+      }
       if (request.method === 'DELETE') return json({ state: 'unconfigured' }, 200, { 'Set-Cookie': sessionCookie(request) })
       return request.method === 'GET'
         ? json({ state: 'unconfigured', message: configMessage, mode: env.LEBATI_AI_MODE === 'production' ? 'production' : 'synthetic' })
@@ -156,9 +161,9 @@ export function createAssistantHandler(dependencies: Dependencies = {}) {
               await stateStore.put(key, [...input, { role: 'assistant', content: answer.slice(0, 6000) }], historySeconds)
               outcome = 'completed'
               send({ type: 'done' })
-            } catch {
+            } catch (error) {
               outcome = timeout.aborted ? 'timeout' : signal.aborted ? 'cancelled' : 'error'
-              send({ type: 'error', message: timeout.aborted ? 'The assistant timed out. Try a narrower question.' : 'The assistant could not complete this response. Please try again.' })
+              send({ type: 'error', message: timeout.aborted ? 'The assistant timed out. Try a narrower question.' : providerFailureMessage(error) })
             } finally {
               audit({ event: 'answer', account: actor.slice(0, 16), role: session.account.role, workspace: command.workspace, tools: [...tools], outcome })
               await stateStore.unlock(lock, owner).catch(() => {})

@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { scryptSync } from 'node:crypto'
 import type OpenAI from 'openai'
-import { createAssistantHandler } from './handler'
-import { generateAnswer, type ProviderInput } from './provider'
-import type { Account } from './access'
-import type { AssistantStore } from './store'
-import { assistantTools, executeTool } from './tools'
+import { createAssistantHandler } from './handler.js'
+import { generateAnswer, type ProviderInput } from './provider.js'
+import type { Account } from './access.js'
+import type { AssistantStore } from './store.js'
+import { assistantTools, executeTool } from './tools.js'
+import { endpoint } from './endpoints.js'
 
 function memoryStore(): AssistantStore {
   const entries = new Map<string, unknown>()
@@ -52,6 +53,31 @@ async function signIn(handler: ReturnType<typeof createAssistantHandler>, userna
 const query = { institution: null, programme: null, from: null, to: null, area: null, category: null, classification: null }
 
 describe('assistant endpoint', () => {
+  it('keeps chat POST-only, rejects malformed and oversized bodies and issues correlation IDs', async () => {
+    const handler = vi.fn(async () => Response.json({ ok: true }))
+    const chat = endpoint(handler, 'chat')
+    const url = origin + '/api/ai/chat'
+    const response = await chat(new Request(url))
+    expect(response.status).toBe(405)
+    expect(response.headers.get('X-Request-Id')).toMatch(/^[0-9a-f-]{36}$/)
+    const oversized = await chat(new Request(url, {
+      method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: 'a'.repeat(8200),
+    }))
+    expect(oversized.status).toBe(413)
+    expect((await oversized.json() as { code: string }).code).toBe('REQUEST_TOO_LARGE')
+    expect((await chat(new Request(url, { method: 'POST', body: '{' }))).status).toBe(400)
+    expect((await chat(post({ action: 'signIn' }))).status).toBe(400)
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('rejects unauthenticated chat even when provider credentials are missing', async () => {
+    const chat = endpoint(createAssistantHandler({ env: {} }), 'chat')
+    const response = await chat(new Request(origin + '/api/ai/chat', {
+      method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(ask()),
+    }))
+    expect(response.status).toBe(401)
+    expect(await response.json()).toMatchObject({ code: 'AUTHENTICATION_REQUIRED', requestId: expect.any(String) })
+  })
   it('reports missing credentials and refuses to use synthetic data in production mode', async () => {
     const generate = vi.fn()
     const unconfigured = createAssistantHandler({ env: {}, generate })
@@ -98,6 +124,12 @@ describe('assistant endpoint', () => {
       return result.messages
     }
     expect(await getHistory('nsfas', cookie)).toHaveLength(2)
+    await (await handler(post(ask('nsfas', 'Explain that comparison'), cookie))).text()
+    expect(generate.mock.calls.at(-1)?.[0].history).toEqual([
+      { role: 'user', content: 'Compare provincial spending' },
+      { role: 'assistant', content: 'Synthetic results.' },
+      { role: 'user', content: 'Explain that comparison' },
+    ])
     expect(await getHistory('sassa', cookie)).toEqual([])
     expect(await getHistory('nsfas', await signIn(handler, 'other'))).toEqual([])
     expect((await handler(post({ action: 'reset', workspace: 'nsfas' }, cookie))).status).toBe(200)

@@ -16,7 +16,17 @@ In the existing Vercel project's **Settings → Environment Variables**, configu
 
 Run `node scripts/create-assistant-account.mjs <username> "Global Administrator"` privately to generate an account entry and password. Enter the account array in the Vercel variable and share the password through an approved password manager. For additional accounts combine entries into one array. To grant institutional access, use `NSFAS Administrator` or `SASSA Administrator` and list authorised programme IDs such as `nsfas-tuition` or `sassa-child` from the geographic source. For an `Agent`, supply `grants: [{ "programme": "sassa-child", "area": "ZA" }]` using only the approved geographic IDs, and list assigned reference IDs under `cases`. Only synthetic case references are currently available. Empty institutional or agent grants provide no reporting access.
 
-Deploy after setting the variables. Verify `GET /api/assistant` returns `locked`, sign in to the portal, unlock the assistant and ask for a province comparison. Check that the result streams and includes the reporting period, denominators and synthetic provenance. Test an out-of-scope institutional account separately. Project usage limits and budgets should be set in the OpenAI platform as an additional cost control.
+Deploy after setting the variables. Verify `GET /api/ai/session` returns `locked`, sign in to the portal, unlock the assistant and ask for a province comparison. Check that the result streams and includes the reporting period, denominators and synthetic provenance. Test an out-of-scope institutional account separately. Project usage limits and budgets should be set in the OpenAI platform as an additional cost control.
+
+## Serverless endpoints and diagnostics
+
+- `/api/ai/chat` accepts POST requests with an `action` of `ask`, `history` or `reset`, and the selected `workspace`. An `ask` also takes a `question` of at most 1,200 characters. The server retrieves conversation history and permissions itself. The browser supplies no analytics, user ID or role.
+- `/api/ai/session` provides GET status, POST sign-in, and DELETE sign-out. The session cookie is server-verified. The original `/api/assistant` route remains available for existing clients.
+- Every endpoint response carries a server-generated `X-Request-Id`. JSON errors also include a safe error code and request ID. Application audit events use the same identifier. The chat endpoint rejects GET requests, JSON over 8 KiB, malformed actions and unauthorised sessions.
+- Vercel SPA rewrites explicitly exclude `/api`. The Node ESM entry points and all server runtime imports use explicit `.js` specifiers resolved from TypeScript. The server TypeScript project uses NodeNext resolution to detect incompatible import paths before deployment.
+- A function boot failure produces a Vercel `FUNCTION_INVOCATION_FAILED` response before application error handling. Inspect runtime logs with the deployment's Vercel project access. After deployment, confirm `/api/ai/session` returns JSON and an unauthenticated POST to `/api/ai/chat` returns 401. Successful HTML indicates the SPA fallback handled the request. Enter sends a message, Shift+Enter inserts a newline, and failed messages can be retried.
+
+The production failure audited on 17 November 2026 was `ERR_MODULE_NOT_FOUND` resolving `/var/task/server/assistant/handler` from `/var/task/api/assistant.js`. Runtime logs confirmed that the function failed during Node ESM import resolution, before the missing-key configuration check could respond.
 
 ## Data and security controls
 

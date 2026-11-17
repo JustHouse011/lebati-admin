@@ -1,7 +1,6 @@
-import { createAssistantHandler } from '../server/assistant/handler'
-
-const handle = createAssistantHandler()
+import { handleAssistant } from '../server/assistant/runtime.js'
+import { endpoint } from '../server/assistant/endpoints.js'
 
 export default {
-  fetch: handle,
+  fetch: endpoint(handleAssistant, 'legacy'),
 }

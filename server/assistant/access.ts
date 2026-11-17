@@ -1,8 +1,8 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import { z } from 'zod'
-import { allowedProgrammes, type GeoAccess, type GeoWorkspace } from '../../src/features/geography/geographicRisk'
-import { fingerprint, type AssistantStore } from './store'
+import { allowedProgrammes, type GeoAccess, type GeoWorkspace } from '../../src/features/geography/geographicRisk.js'
+import { fingerprint, type AssistantStore } from './store.js'
 
 const derive = promisify(scrypt)
 const identifier = z.string().min(1).max(80)

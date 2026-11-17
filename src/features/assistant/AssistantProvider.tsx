@@ -15,10 +15,20 @@ const questions: Record<GeoWorkspace, string[]> = {
 }
 
 async function request(body?: object, signal?: AbortSignal, method = body ? 'POST' : 'GET') {
-  const response = await fetch('/api/assistant', {
+  const chat = body && 'action' in body && ['ask', 'history', 'reset'].includes(String(body.action))
+  let response: Response
+  try {
+    response = await fetch(chat ? '/api/ai/chat' : '/api/ai/session', {
     method, signal, credentials: 'same-origin',
     ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
-  })
+    })
+  } catch (cause) {
+    if (signal?.aborted) throw cause
+    throw new Error('Cannot connect to the assistant. Check your connection and try again.')
+  }
+  if (!response.headers.get('content-type')?.includes(response.ok && chat && 'action' in body && body.action === 'ask' ? 'application/x-ndjson' : 'application/json')) {
+    throw new Error('The assistant backend is unavailable. The server function may need redeployment.')
+  }
   if (!response.ok) {
     const result = await response.json().catch(() => ({ error: 'The assistant is unavailable.' }))
     throw new Error(typeof result.error === 'string' ? result.error : 'The assistant is unavailable.')
@@ -60,6 +70,7 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [retryQuestion, setRetryQuestion] = useState('')
   const requestRef = useRef<AbortController | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const historyRef = useRef<HTMLDivElement>(null)
@@ -111,9 +122,9 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
     void sessionAction({ action: 'signIn', username: values.get('username'), password: values.get('password') })
   }
 
-  const ask = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const prompt = question.trim()
+  const ask = async (event?: FormEvent<HTMLFormElement>, retry?: string) => {
+    event?.preventDefault()
+    const prompt = (retry ?? question).trim()
     if (!prompt || requestRef.current) return
     const controller = new AbortController()
     requestRef.current = controller
@@ -122,6 +133,7 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
     setGenerating(true)
     setDraft('')
     setError('')
+    setRetryQuestion('')
     setNotice('Checking authorised sources…')
     const userMessage: Message = { role: 'user', content: prompt }
     setMessages((history) => [...history, userMessage])
@@ -141,6 +153,7 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
     } catch (cause) {
       setMessages((history) => history.filter((entry) => entry !== userMessage))
       setQuestion(prompt)
+      if (!controller.signal.aborted) setRetryQuestion(prompt)
       if (controller.signal.aborted) setNotice('Response stopped.')
       else {
         setNotice('')
@@ -179,7 +192,12 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
         {!loading && status?.state === 'unconfigured' && <div className="rounded-xl border border-gold/60 p-4 text-sm leading-relaxed">
           <p><strong>Assistant setup required</strong></p><p className="mt-2">{status.message}</p>
         </div>}
-        {!loading && !status && <p className="text-sm">Assistant access is unavailable. Close the panel and try again.</p>}
+        {!loading && !status && <button type="button" className="settings-button secondary" onClick={() => {
+          setLoading(true)
+          setError('')
+          const controller = new AbortController()
+          void load(controller.signal).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'The assistant could not be reached.')).finally(() => setLoading(false))
+        }}>Reconnect to assistant</button>}
         {status?.state === 'locked' && <form onSubmit={signIn} className="space-y-3">
           <p className="text-sm">Enter your assistant account credentials to access fictional workspace records.</p>
           <label className="grid gap-1 text-sm">Assistant username<input className="settings-input" name="username" autoComplete="username" maxLength={64} required /></label>
@@ -200,9 +218,16 @@ function AssistantPanel({ workspace, initial, onClose }: { workspace: GeoWorkspa
         </>}
         {notice && <p role="status" className="text-xs opacity-75">{notice}</p>}
         {error && <p role="alert" className="rounded-xl border border-red-500/40 p-3 text-sm">{error}</p>}
+        {retryQuestion && ready && <button type="button" className="settings-button secondary" disabled={busy} onClick={() => void ask(undefined, retryQuestion)}>Retry message</button>}
       </div>
       {ready && <form onSubmit={(event) => void ask(event)} className="space-y-2 border-t border-slate-200 p-3">
-        <label className="grid gap-1 text-xs">Ask Lebati AI<textarea className="settings-input min-h-16 resize-y" rows={2} value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={1200} /></label>
+        <label className="grid gap-1 text-xs">Ask Lebati AI<textarea className="settings-input min-h-16 resize-y" rows={2} value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={1200}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault()
+              if (!busy) void ask()
+            }
+          }} /></label>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button type="button" disabled={busy} className="text-xs underline disabled:opacity-40" onClick={() => void sessionAction(undefined, 'DELETE')}>Lock assistant</button>
           {generating ? <button type="button" className="settings-button secondary" onClick={stop}><Square size={14} aria-hidden="true" /> Stop</button> :

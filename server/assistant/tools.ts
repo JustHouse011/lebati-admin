@@ -4,9 +4,9 @@ import { z } from 'zod'
 import {
   aggregate, allowedProgrammes, authorisedCohorts, categories, classifications, country, defaultFilters, indexGeography,
   months, syntheticCohorts, type Area, type Cohort, type GeoFilters, type GeoWorkspace, type Geography, type Metrics,
-} from '../../src/features/geography/geographicRisk'
-import type { SafeAccount } from './access'
-import { knowledge } from './knowledge'
+} from '../../src/features/geography/geographicRisk.js'
+import type { SafeAccount } from './access.js'
+import { knowledge } from './knowledge.js'
 
 const toolHelp = {
   getDashboardSummary: 'Summarise monitored participants, spending and review indicators in the authorised workspace or area.',

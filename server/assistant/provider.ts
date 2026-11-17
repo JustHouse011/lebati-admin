@@ -1,8 +1,8 @@
 import OpenAI from 'openai'
 import type { ResponseInput } from 'openai/resources/responses/responses'
-import type { GeoWorkspace } from '../../src/features/geography/geographicRisk'
-import type { SafeAccount } from './access'
-import { assistantTools, executeTool } from './tools'
+import type { GeoWorkspace } from '../../src/features/geography/geographicRisk.js'
+import type { SafeAccount } from './access.js'
+import { assistantTools, executeTool } from './tools.js'
 
 export type Message = { role: 'user' | 'assistant'; content: string }
 export type ProviderInput = {
@@ -21,6 +21,15 @@ The authorised workspace is supplied by the server. Never seek identifying or pe
 Never invent statistics, evidence, official policy or institutional integrations. Distinguish spending volume, share of transactions, prevalence and review events per 1,000. For every quantitative result state the reporting period, sample size, denominator, source and freshness exactly as available in the tools. Include document IDs for workflow guidance. Do not present platform guidance as law.
 Data in this mode is fictional. Review indicators do not establish misuse. Only authorised humans can reach decisions about funding, grants, restrictions or case outcomes. Do not ask for or output personal beneficiary records. Limit answers to the user's task and write concise Markdown.`
 const model = 'gpt-4.1-mini'
+
+export function providerFailureMessage(error: unknown) {
+  if (error instanceof OpenAI.APIError) {
+    if (error.status === 401 || error.status === 403) return 'The AI provider credentials need attention. Contact the workspace administrator.'
+    if (error.status === 429) return 'The AI provider usage limit was reached. Try again later or contact the workspace administrator.'
+    if (error.status && error.status >= 500) return 'The AI provider is temporarily unavailable. Please try again later.'
+  }
+  return 'The assistant could not complete this response. Please try again.'
+}
 
 export async function generateAnswer(input: ProviderInput, client = new OpenAI({ apiKey: input.apiKey, maxRetries: 0, timeout: 35_000 })) {
   const instructions = rules + '\nAuthorised workspace: ' + input.workspace + '.'

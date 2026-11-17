@@ -12,22 +12,28 @@ function assistantApi(mode: string): Plugin {
     apply: 'serve',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
-      server.middlewares.use('/api/assistant', async (req, res) => {
+      server.middlewares.use(async (req, res, next) => {
+        const pathname = req.url?.split('?')[0]
+        if (!['/api/assistant', '/api/ai/chat', '/api/ai/session'].includes(pathname ?? '')) return next()
         const abort = new AbortController()
         res.once('close', () => abort.abort())
         try {
           const { createAssistantHandler } = await server.ssrLoadModule('/server/assistant/handler.ts') as {
             createAssistantHandler(options: { env: NodeJS.ProcessEnv }): (request: Request) => Promise<Response>
           }
+          const { endpoint } = await server.ssrLoadModule('/server/assistant/endpoints.ts') as {
+            endpoint(handler: (request: Request) => Promise<Response>, route: 'chat' | 'session' | 'legacy'): (request: Request) => Promise<Response>
+          }
           const requestHeaders = new Headers()
           for (const [key, value] of Object.entries(req.headers)) {
             if (value) requestHeaders.set(key, Array.isArray(value) ? value.join(', ') : value)
           }
-          const request = new Request('http://' + req.headers.host + '/api/assistant', {
+          const request = new Request('http://' + req.headers.host + pathname, {
             method: req.method, headers: requestHeaders, signal: abort.signal,
             ...(req.method === 'POST' ? { body: Readable.toWeb(req), duplex: 'half' as const } : {}),
           })
-          const response = await createAssistantHandler({ env })(request)
+          const route = pathname === '/api/ai/chat' ? 'chat' : pathname === '/api/ai/session' ? 'session' : 'legacy'
+          const response = await endpoint(createAssistantHandler({ env }), route)(request)
           res.statusCode = response.status
           response.headers.forEach((value, key) => res.setHeader(key, value))
           if (response.body) await pipeline(Readable.fromWeb(response.body), res)
