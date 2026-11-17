@@ -6,6 +6,8 @@ import {
   Building2,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   CreditCard,
   Download,
@@ -15,8 +17,6 @@ import {
   LayoutDashboard,
   MapPin,
   Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plug,
   Search,
   Settings,
@@ -241,8 +241,8 @@ function DashboardSidebar({ user, theme, workspace }: { user: DemoUser; theme: '
         <div className={`hidden text-xs ${collapsed ? '' : 'lg:block'} ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{APP_NAME}</div>
         <button type="button" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-expanded={!collapsed} aria-controls="workspace-navigation" onClick={toggleSidebar}
-          className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-slate-400/40 text-xs hover:bg-teal/10 focus-visible:outline-2 focus-visible:outline-teal lg:flex">
-          {collapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <><PanelLeftClose size={17} aria-hidden="true" /><span>Collapse sidebar</span></>}
+          className="hidden h-9 w-9 self-end items-center justify-center rounded-lg text-xs hover:bg-teal/10 focus-visible:outline-2 focus-visible:outline-teal lg:flex">
+          {collapsed ? <ChevronRight size={18} aria-hidden="true" /> : <ChevronLeft size={18} aria-hidden="true" />}
         </button>
       </div>
       <nav id="workspace-navigation" aria-label="Workspace navigation" className="mt-4 flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
